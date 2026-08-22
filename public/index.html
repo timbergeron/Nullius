@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f4f1e9" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#11110f" media="(prefers-color-scheme: dark)">
+    <meta name="description" content="Ask the conversation. Nullius answers only when mentioned in Discord.">
+    <title>Nullius — Ask the conversation</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="wordmark" href="./" aria-label="Nullius home">Nullius<span aria-hidden="true">.</span></a>
+    </header>
+
+    <main>
+      <section class="screen" id="loading-screen" aria-live="polite">
+        <span class="quiet">One moment…</span>
+      </section>
+
+      <section class="screen" id="landing-screen" hidden>
+        <h1 class="visually-hidden">Ask the conversation with Nullius</h1>
+
+        <div class="discord-demo" aria-label="An example conversation with Nullius">
+          <div class="demo-channel"><span aria-hidden="true">#</span> general</div>
+          <div class="demo-message demo-one">
+            <div class="avatar avatar-sage" aria-hidden="true">M</div>
+            <div>
+              <span class="demo-name">Maya</span>
+              <p>Octopuses have three hearts.</p>
+            </div>
+          </div>
+          <div class="demo-message demo-two">
+            <div class="avatar avatar-blue" aria-hidden="true">J</div>
+            <div>
+              <span class="demo-name">Jon</span>
+              <div class="reply-quote">Maya · Octopuses have three hearts.</div>
+              <p><span class="mention">@Nullius</span> is that actually true?</p>
+            </div>
+          </div>
+          <div class="demo-message demo-three">
+            <div class="avatar avatar-dark" aria-hidden="true">N</div>
+            <div>
+              <span class="demo-name">Nullius</span><span class="app-badge">APP</span>
+              <p>Yes. Two pump blood through the gills; the third circulates it through the body.</p>
+            </div>
+          </div>
+        </div>
+
+        <a class="primary-button" href="auth/discord">Add to Discord</a>
+        <p class="fine-print" id="trial-copy">20 answers included <span aria-hidden="true">·</span> No card</p>
+        <p class="status-message" id="landing-status" role="status"></p>
+      </section>
+
+      <section class="screen ready-screen" id="ready-screen" hidden>
+        <div class="server-mark" id="server-mark" aria-hidden="true">
+          <img id="server-icon" alt="" hidden>
+          <span id="server-initial">N</span>
+        </div>
+        <p class="eyebrow">Live in <span id="server-name">your server</span></p>
+        <h1>It’s ready.</h1>
+
+        <label class="field-label" for="nickname">What should your server call it?</label>
+        <div class="field-wrap">
+          <input id="nickname" maxlength="32" autocomplete="off" placeholder="Nullius">
+          <span class="field-state" id="nickname-state" aria-live="polite"></span>
+        </div>
+
+        <button class="primary-button" id="open-discord" type="button">Copy prompt &amp; open Discord</button>
+        <p class="copied-prompt" id="copied-prompt" aria-live="polite"></p>
+
+        <div class="connection-card" id="trial-state">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="trial-status"></span>
+        </div>
+
+        <div class="connection-card" id="openrouter-state" hidden>
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>OpenRouter connected</span>
+          <span class="connection-detail" id="limit-status"></span>
+        </div>
+
+        <a class="secondary-button" id="connect-openrouter" href="auth/openrouter" hidden>
+          Connect OpenRouter
+        </a>
+
+        <p class="privacy-note">Only answers when mentioned. Conversation text isn’t stored.</p>
+        <p class="status-message" id="ready-status" role="status"></p>
+      </section>
+    </main>
+
+    <footer>
+      <span>Quiet until asked.</span>
+      <a href="https://github.com/timbergeron/Nullius">GitHub</a>
+    </footer>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>

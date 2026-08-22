@@ -1,0 +1,23 @@
+[Unit]
+Description=Nullius Discord bot and setup site
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tim
+Group=tim
+WorkingDirectory=/home/tim/codedev/Nullius
+EnvironmentFile=/home/tim/codedev/Nullius/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node src/index.js
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/tim/codedev/Nullius/data
+
+[Install]
+WantedBy=multi-user.target
