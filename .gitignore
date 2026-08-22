@@ -2,5 +2,6 @@ node_modules/
 .env
 data/*.json
 data/*.tmp
+data/knowledge/
 *.log
 .DS_Store

@@ -56,6 +56,17 @@ export function loadConfig(env = process.env) {
         positiveNumber(env.MAX_CONTEXT_CHARACTERS, 16000, "MAX_CONTEXT_CHARACTERS"),
       ),
     },
+    knowledge: {
+      enabled: env.KNOWLEDGE_ENABLED?.trim() !== "false",
+      packsDirectory: path.resolve(env.KNOWLEDGE_PACKS_DIR?.trim() || "./knowledge-packs"),
+      indexDirectory: path.resolve(env.KNOWLEDGE_INDEX_DIR?.trim() || "./data/knowledge"),
+      maxResults: Math.floor(
+        positiveNumber(env.KNOWLEDGE_MAX_RESULTS, 12, "KNOWLEDGE_MAX_RESULTS"),
+      ),
+      maxCharacters: Math.floor(
+        positiveNumber(env.KNOWLEDGE_MAX_CHARACTERS, 16000, "KNOWLEDGE_MAX_CHARACTERS"),
+      ),
+    },
     userCooldownMs:
       positiveNumber(env.USER_COOLDOWN_SECONDS, 8, "USER_COOLDOWN_SECONDS") * 1000,
   };

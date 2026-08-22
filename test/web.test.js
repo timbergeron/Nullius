@@ -47,6 +47,10 @@ test("serves the setup page and reports health", networkTest, async () => {
     assert.equal(guide.status, 200);
     assert.match(await guide.text(), /Set up Nullius/);
 
+    const packGuide = await fetch(`${baseUrl}/knowledge-packs.html`);
+    assert.equal(packGuide.status, 200);
+    assert.match(await packGuide.text(), /Teach Nullius a subject/);
+
     const health = await fetch(`${baseUrl}/healthz`).then((response) => response.json());
     assert.deepEqual(health, { ok: true, discord: true });
 

@@ -7,9 +7,14 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env --watch src/index.js",
     "start": "node --env-file-if-exists=.env src/index.js",
-    "check": "node --check src/*.js && node --check public/*.js",
+    "check": "node --check src/*.js && node --check src/knowledge/*.js && node --check scripts/*.js && node --check public/*.js",
     "test": "node --test",
-    "test:integration": "NULLIUS_NETWORK_TESTS=1 node --test test/web.test.js"
+    "test:integration": "NULLIUS_NETWORK_TESTS=1 node --test test/web.test.js",
+    "knowledge:list": "node --env-file-if-exists=.env scripts/knowledge.js list",
+    "knowledge:validate": "node --env-file-if-exists=.env scripts/knowledge.js validate",
+    "knowledge:build": "node --env-file-if-exists=.env scripts/knowledge.js build",
+    "knowledge:test": "node --env-file-if-exists=.env scripts/knowledge.js test",
+    "knowledge:query": "node --env-file-if-exists=.env scripts/knowledge.js query"
   },
   "engines": {
     "node": ">=22"

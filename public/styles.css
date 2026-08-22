@@ -448,3 +448,53 @@ footer a {
     transition-duration: 0.001ms !important;
   }
 }
+
+.knowledge-packs {
+  width: 100%;
+  margin: 1.25rem 0 0;
+  padding: 1rem 1.1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  text-align: left;
+}
+
+.knowledge-packs legend {
+  padding: 0 0.4rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.knowledge-hint {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.knowledge-row {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.knowledge-row:first-child {
+  border-top: 0;
+}
+
+.knowledge-row input {
+  margin-top: 0.25rem;
+  accent-color: var(--accent);
+}
+
+.knowledge-row small {
+  color: var(--muted);
+}
+
+.knowledge-row input:disabled + span {
+  opacity: 0.55;
+}

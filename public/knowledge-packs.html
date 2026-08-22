@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#11110f">
+    <meta name="description" content="Create, test, install, and reproduce portable Nullius knowledge packs.">
+    <title>Nullius knowledge-pack guide</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="setup.css">
+  </head>
+  <body class="guide-body">
+    <header class="site-header guide-header">
+      <a class="wordmark" href="./" aria-label="Nullius home">Nullius<span aria-hidden="true">.</span></a>
+      <a href="setup.html">Administrator setup</a>
+    </header>
+
+    <main class="guide-main">
+      <article class="guide">
+        <header class="guide-intro">
+          <p class="eyebrow">Knowledge-pack author guide</p>
+          <h1>Teach Nullius a subject</h1>
+          <p>A knowledge pack is a portable, declarative module that tells Nullius which evidence to index, when the subject applies, and how retrieval should be evaluated. Pack files contain no executable JavaScript.</p>
+        </header>
+
+        <nav class="guide-nav" aria-label="On this page">
+          <strong>On this page</strong>
+          <a href="#requirements">Requirements</a>
+          <a href="#copy">Create a pack</a>
+          <a href="#manifest">Manifest reference</a>
+          <a href="#sources">Source types and mounts</a>
+          <a href="#activation">Activation</a>
+          <a href="#evaluations">Evaluations</a>
+          <a href="#build">Build and install</a>
+          <a href="#qssm">Reproduce QSS-M</a>
+          <a href="#security">Security model</a>
+        </nav>
+
+        <section id="requirements">
+          <p class="step-label">Before you start</p>
+          <h2>Requirements</h2>
+          <ul>
+            <li>Nullius with Node.js 22.13 or newer.</li>
+            <li>Readable source material: a Git checkout, files stored in the pack, or a public HTTPS CSV.</li>
+            <li>Questions whose correct evidence you can identify. These become the retrieval evaluation set.</li>
+          </ul>
+          <p>SQLite FTS5 is provided by Node through <code>node:sqlite</code>; the pack system adds no npm dependency. Generated indexes live under <code>data/knowledge/</code> and are not committed.</p>
+        </section>
+
+        <section id="copy">
+          <p class="step-label">Step 1</p>
+          <h2>Create the pack directory</h2>
+          <p>Choose a stable, lowercase, kebab-case ID. This example teaches Nullius about an imaginary Acme engine:</p>
+          <pre><code>mkdir -p knowledge-packs/acme-engine
+touch knowledge-packs/acme-engine/manifest.json
+touch knowledge-packs/acme-engine/evaluations.json
+touch knowledge-packs/acme-engine/README.md</code></pre>
+          <p>The portable unit is the entire directory:</p>
+          <pre><code>knowledge-packs/acme-engine/
+├── manifest.json
+├── evaluations.json
+├── README.md
+└── reference/              optional pack-owned files</code></pre>
+          <p>Commit the directory, but do not commit <code>data/knowledge/acme-engine.sqlite</code>.</p>
+        </section>
+
+        <section id="manifest">
+          <p class="step-label">Step 2</p>
+          <h2>Write <code>manifest.json</code></h2>
+          <p>This complete starter combines source code, documentation, history, and a catalog. Remove source objects you do not need.</p>
+          <pre><code>{
+  "schemaVersion": 1,
+  "id": "acme-engine",
+  "name": "Acme Engine Expert",
+  "version": "1.0.0",
+  "description": "Current Acme source, documentation, history, and settings.",
+  "activation": {
+    "mode": "auto",
+    "keywords": ["acme engine", "acme-renderer"],
+    "symbols": ["acmeinfo"],
+    "stopSymbols": ["name", "status"]
+  },
+  "retrieval": {
+    "maxResults": 8,
+    "maxCharacters": 12000,
+    "maxPerDocument": 2,
+    "minScore": 0.2,
+    "exactSymbolsFirst": true
+  },
+  "sources": [
+    {
+      "id": "engine",
+      "type": "git-worktree",
+      "label": "Acme source",
+      "kind": "source",
+      "authority": 1,
+      "mount": "acme",
+      "path": ".",
+      "ref": "HEAD",
+      "extractor": "c-source",
+      "include": ["src/**/*.{c,h}"],
+      "exclude": ["src/vendor/**"],
+      "urlTemplate": "https://github.com/example/acme/blob/{revision}/{path}#L{startLine}"
+    },
+    {
+      "id": "docs",
+      "type": "files",
+      "label": "Pack documentation",
+      "kind": "doc",
+      "authority": 0.8,
+      "path": "reference",
+      "extractor": "auto",
+      "include": ["**/*.{md,html,txt}"],
+      "exclude": []
+    },
+    {
+      "id": "history",
+      "type": "git-history",
+      "label": "Acme history",
+      "kind": "commit",
+      "authority": 0.6,
+      "mount": "acme",
+      "path": ".",
+      "ref": "HEAD",
+      "maxCommits": 2000,
+      "urlTemplate": "https://github.com/example/acme/commit/{revision}"
+    }
+  ],
+  "answerPolicy": {
+    "sourceOrder": ["engine", "docs", "history"],
+    "mentionSymbolOrigin": false,
+    "mentionDefaults": true
+  },
+  "evaluationsFile": "evaluations.json"
+}</code></pre>
+          <p><code>authority</code> ranges from 0 to 1 and affects ranking. Give the evidence that describes current behavior the highest value. <code>answerPolicy</code> intentionally contains only validated source IDs and booleans; free-form prompt instructions are not allowed.</p>
+        </section>
+
+        <section id="sources">
+          <p class="step-label">Step 3</p>
+          <h2>Choose source types and configure mounts</h2>
+          <dl class="troubleshooting-list">
+            <dt><code>git-worktree</code></dt>
+            <dd>Indexes tracked files from a local Git checkout. It records the branch and commit and supports include/exclude globs.</dd>
+            <dt><code>git-history</code></dt>
+            <dd>Indexes commit hashes, dates, subjects, bodies, and touched filenames from a validated Git ref.</dd>
+            <dt><code>files</code></dt>
+            <dd>Indexes an ordinary directory. A relative path without a mount must remain inside the pack directory.</dd>
+            <dt><code>csv</code></dt>
+            <dd>Indexes either a pack-owned CSV or a public HTTPS CSV. Catalog columns map possible header names to identifier, engine, category, type, description, and summary fields.</dd>
+          </dl>
+          <p>A pack names a mount such as <code>acme</code>; the operator chooses the real path through a predictable environment variable:</p>
+          <pre><code>KNOWLEDGE_SOURCE_ACME=/srv/source/acme</code></pre>
+          <p>Hyphens become underscores and names become uppercase: mount <code>quake-tools</code> maps to <code>KNOWLEDGE_SOURCE_QUAKE_TOOLS</code>. Packs cannot request arbitrary environment variables. The source’s <code>path</code> must resolve inside its mount, and symlinks cannot escape it.</p>
+          <p>Available file extractors are <code>auto</code>, <code>c-source</code>, <code>markdown</code>, <code>html-doc</code>, and <code>text</code>. C-family source is chunked by declaration/function and yields cvar, command, function, and filename symbols. Markdown and HTML are chunked by heading.</p>
+          <p>A remote catalog source looks like this:</p>
+          <pre><code>{
+  "id": "settings",
+  "type": "csv",
+  "label": "Settings catalog",
+  "kind": "catalog",
+  "authority": 0.75,
+  "extractor": "command-catalog",
+  "url": "https://example.com/public-settings.csv",
+  "columns": {
+    "identifier": ["Name", "Command / Variable"],
+    "engine": ["Engine", "Version"],
+    "category": ["Category"],
+    "type": ["Type"],
+    "description": ["Description"],
+    "summary": ["Summary"]
+  }
+}</code></pre>
+        </section>
+
+        <section id="activation">
+          <p class="step-label">Step 4</p>
+          <h2>Make activation specific</h2>
+          <p><code>activation.mode: "auto"</code> keeps a pack out of unrelated answers. Use:</p>
+          <ul>
+            <li><code>keywords</code> for unmistakable subject phrases such as a product or project name;</li>
+            <li><code>symbols</code> only for known plain words that are unique enough to activate safely;</li>
+            <li><code>stopSymbols</code> for indexed identifiers that are too ambiguous.</li>
+          </ul>
+          <p>Identifier-shaped known symbols such as <code>r_skywind</code>, <code>module.name</code>, or <code>+attack</code> activate automatically. Ordinary words do not. Avoid broad keywords such as <code>demo</code>, <code>record</code>, <code>music</code>, or <code>quake</code>; they collide with normal conversation.</p>
+          <p>Use <code>"mode": "always"</code> only when every question in a selected server should use that subject.</p>
+        </section>
+
+        <section id="evaluations">
+          <p class="step-label">Step 5</p>
+          <h2>Write rank-aware evaluations first</h2>
+          <p>Each positive question must activate the pack and find every expected item within the first three results by default. A rule may set <code>maxRank</code> explicitly. Fields on one rule must match the same result.</p>
+          <pre><code>{
+  "questions": [
+    {
+      "question": "Where is Acme fog rendered?",
+      "expect": {
+        "exactLocator": "src/render/fog.c",
+        "kind": "source",
+        "sourceId": "engine",
+        "text": "Fog_Draw",
+        "maxRank": 2
+      },
+      "forbid": {
+        "locator": "src/vendor/",
+        "maxRank": 3
+      }
+    },
+    {
+      "question": "What does acme_fog_density default to?",
+      "expect": { "symbol": "acme_fog_density", "maxRank": 1 }
+    }
+  ],
+  "offTopic": [
+    "How dense is the fog tomorrow?",
+    "Can you record a product demo?",
+    "What music should I play?"
+  ]
+}</code></pre>
+          <p>Expectation fields are <code>exactLocator</code>, partial <code>locator</code>, <code>kind</code>, <code>sourceId</code>, <code>symbol</code>, <code>text</code>, and <code>maxRank</code>. Use an array in <code>expect</code> when an answer needs separate evidence, such as source behavior plus catalog provenance. <code>forbid</code> rejects known bad results. Grow <code>offTopic</code> with realistic words that overlap your domain.</p>
+        </section>
+
+        <section id="build">
+          <p class="step-label">Step 6</p>
+          <h2>Validate, build, test, and install</h2>
+          <pre><code>npm run knowledge:validate -- acme-engine
+KNOWLEDGE_SOURCE_ACME=/srv/source/acme \
+  npm run knowledge:build -- acme-engine
+KNOWLEDGE_SOURCE_ACME=/srv/source/acme \
+  npm run knowledge:test -- acme-engine
+npm run knowledge:query -- acme-engine "what does acme_fog_density do?"</code></pre>
+          <p><code>knowledge:validate</code> reports only whether a required mount is set; it never prints its value. The build writes a uniquely named staging database and atomically replaces the previous index only after success.</p>
+          <p>Restart Nullius after adding a new pack or changing its manifest:</p>
+          <pre><code>sudo systemctl restart nullius</code></pre>
+          <p>After a source-only update, rebuild the same pack. A running Nullius process detects and safely reloads the replacement index automatically. If an index does not match its manifest version and hash, the pack stays unavailable until rebuilt.</p>
+          <p>Finally, visit the Nullius setup page as the Discord server owner and enable the ready pack under <strong>Knowledge</strong>.</p>
+        </section>
+
+        <section id="qssm">
+          <p class="step-label">Worked example</p>
+          <h2>Reproduce the QSS-M module</h2>
+          <p>The checked-in <code>knowledge-packs/qssm</code> directory is a complete example. From a fresh machine:</p>
+          <pre><code>git clone https://github.com/timbergeron/Nullius.git
+git clone https://github.com/timbergeron/QSS-M.git
+cd Nullius
+npm ci
+
+export KNOWLEDGE_SOURCE_QSSM="$(cd ../QSS-M &amp;&amp; pwd)"
+npm run knowledge:validate -- qssm
+npm run knowledge:build -- qssm
+npm run knowledge:test -- qssm
+npm run knowledge:query -- qssm "where is the skybox rendering code?"</code></pre>
+          <p>The pack indexes current QSS-M engine source, selected project documentation, 3,000 commits, and the public commands-and-variables Google Sheet. Vendored image/JSON libraries are excluded because they add vocabulary without describing QSS-M behavior.</p>
+          <p>To reproduce the same source snapshot later, record the output of:</p>
+          <pre><code>git -C ../QSS-M rev-parse HEAD</code></pre>
+          <p>Then check out that commit before rebuilding. The public sheet is intentionally live; for byte-for-byte historical reproduction, export it to a CSV inside the pack and change the source from <code>url</code> to a contained <code>path</code>.</p>
+        </section>
+
+        <section id="security">
+          <p class="step-label">Reference</p>
+          <h2>Security and resource limits</h2>
+          <ul>
+            <li>Pack-relative files and mounted files are realpath-contained; traversal and symlink escapes fail.</li>
+            <li>Remote CSV requests require public HTTPS on port 443. Every redirect is revalidated, private/loopback destinations are blocked, and downloads stream through an 8 MiB byte limit.</li>
+            <li>File count, per-file size, total source size, commit count, result count, and prompt characters are bounded.</li>
+            <li>Git runs through argument-safe process execution and refs that resemble options are rejected.</li>
+            <li>Evidence is JSON encoded, delimiter characters are escaped, and the model is told that all reference text is untrusted data.</li>
+            <li>Free-form pack prompt instructions are not supported. Use only the validated <code>answerPolicy</code> fields.</li>
+          </ul>
+          <aside class="warning"><strong>Review packs before installing them.</strong> A pack cannot execute code through the pack system, but it chooses which files inside an explicitly configured source mount are indexed and which public CSV endpoint is contacted.</aside>
+        </section>
+      </article>
+    </main>
+
+    <footer>
+      <span>Quiet until asked.</span>
+      <span class="footer-links">
+        <a href="setup.html">Setup guide</a>
+        <a href="./">Setup</a>
+        <a href="https://github.com/timbergeron/Nullius">GitHub</a>
+      </span>
+    </footer>
+  </body>
+</html>

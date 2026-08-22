@@ -32,7 +32,15 @@ async function replyWithoutPings(message, text) {
   }
 }
 
-export function createBot({ config, store, openRouter, logger = console }) {
+// A reply-chain question is often "@Nullius explain this", so the message being replied
+// to carries the terms worth searching for.
+function retrievalQuery(chain, question, botId) {
+  const parent = chain.at(-2);
+  const quoted = parent ? stripBotMention(parent.content || "", botId).slice(0, 1000) : "";
+  return [question, quoted].filter(Boolean).join("\n");
+}
+
+export function createBot({ config, store, openRouter, knowledge = null, logger = console }) {
   const client = new Client({
     intents: [
       GatewayIntentBits.Guilds,
@@ -106,9 +114,23 @@ export function createBot({ config, store, openRouter, logger = console }) {
 
       await message.channel.sendTyping().catch(() => {});
       const chain = await collectReplyChain(message, config.context.maxMessages);
+      const retrieved = knowledge
+        ? await knowledge.retrieve({
+          packIds: refreshedConfig.knowledgePacks || [],
+          question: retrievalQuery(chain, question, client.user.id),
+        })
+        : null;
+      if (retrieved) {
+        logger.info?.(
+          `Knowledge: ${retrieved.results.length} passages from ${
+            retrieved.packs.map((pack) => pack.id).join(", ")
+          }`,
+        );
+      }
       const messages = buildLlmMessages(chain, {
         botId: client.user.id,
         maxCharacters: config.context.maxCharacters,
+        knowledge: retrieved,
       });
       const rootMessageId = chain[0]?.id || message.id;
       const answer = await openRouter.complete({

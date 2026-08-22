@@ -38,6 +38,55 @@ async function saveNickname(input, state) {
   }
 }
 
+async function saveKnowledgePacks(packIds, state) {
+  state.textContent = "…";
+  try {
+    const response = await fetch("api/knowledge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ packIds }),
+    });
+    if (!response.ok) throw new Error("Knowledge failed");
+    state.textContent = "✓";
+  } catch {
+    state.textContent = "Try again";
+  }
+}
+
+function renderKnowledgePacks(packs) {
+  const fieldset = document.querySelector("#knowledge-packs");
+  const list = document.querySelector("#knowledge-list");
+  const state = document.querySelector("#knowledge-state");
+  if (!packs?.length) return;
+  fieldset.hidden = false;
+
+  for (const pack of packs) {
+    const row = document.createElement("label");
+    row.className = "knowledge-row";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = pack.enabled;
+    input.disabled = !pack.ready;
+    input.dataset.packId = pack.id;
+    const text = document.createElement("span");
+    text.innerHTML = "";
+    const name = document.createElement("strong");
+    name.textContent = pack.name;
+    const detail = document.createElement("small");
+    detail.textContent = pack.ready ? pack.description : "Index not built yet";
+    text.append(name, document.createElement("br"), detail);
+    row.append(input, text);
+    list.append(row);
+  }
+
+  list.addEventListener("change", () => {
+    const packIds = [...list.querySelectorAll("input:checked")].map(
+      (input) => input.dataset.packId,
+    );
+    saveKnowledgePacks(packIds, state);
+  });
+}
+
 function renderReady(data) {
   show("ready");
   document.querySelector("#server-name").textContent = data.guild.name;
@@ -97,6 +146,7 @@ function renderReady(data) {
     openRouterState.hidden = true;
     connectOpenRouter.hidden = false;
   }
+  renderKnowledgePacks(data.knowledgePacks);
   setError(document.querySelector("#ready-status"));
 }
 

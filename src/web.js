@@ -76,6 +76,14 @@ function bestChannel(guild) {
   return candidates.find((channel) => channel.id === guild.systemChannelId) || candidates[0] || null;
 }
 
+function publicKnowledge(knowledge, guildConfig) {
+  const enabled = new Set(guildConfig.knowledgePacks || []);
+  return (knowledge?.list() || []).map((pack) => ({
+    ...pack,
+    enabled: enabled.has(pack.id),
+  }));
+}
+
 function publicGuildConfig(guildConfig, config) {
   const usage = guildConfig.usage?.month === new Date().toISOString().slice(0, 7)
     ? guildConfig.usage.cost
@@ -89,7 +97,7 @@ function publicGuildConfig(guildConfig, config) {
   };
 }
 
-export function createWebApp({ config, store, client, openRouter, logger = console }) {
+export function createWebApp({ config, store, client, openRouter, knowledge = null, logger = console }) {
   const app = express();
   app.disable("x-powered-by");
   app.use(express.json({ limit: "8kb" }));
@@ -279,6 +287,7 @@ export function createWebApp({ config, store, client, openRouter, logger = conso
             : `https://discord.com/channels/${guild.id}`,
         },
         ...publicGuildConfig(guildConfig, config),
+        knowledgePacks: publicKnowledge(knowledge, guildConfig),
       });
     } catch (error) {
       logger.error("Could not load guild for session", error);
@@ -302,6 +311,32 @@ export function createWebApp({ config, store, client, openRouter, logger = conso
     } catch (error) {
       logger.error("Could not change nickname", error);
       return res.status(400).json({ error: "nickname-failed" });
+    }
+  });
+
+  app.post("/api/knowledge", async (req, res) => {
+    const session = sessionFromRequest(req, config);
+    const guildConfig = session && store.getGuild(session.guildId);
+    if (!session || !guildConfig || guildConfig.ownerId !== session.userId) {
+      return res.status(401).json({ error: "unauthorized" });
+    }
+    const requested = req.body?.packIds;
+    if (!Array.isArray(requested) || requested.length > 20) {
+      return res.status(400).json({ error: "invalid-packs" });
+    }
+    const installed = new Set(
+      (knowledge?.list() || []).filter((pack) => pack.ready).map((pack) => pack.id),
+    );
+    const packIds = requested.filter((packId) => installed.has(packId));
+    if (packIds.length !== requested.length) {
+      return res.status(400).json({ error: "unknown-pack" });
+    }
+    try {
+      await store.setKnowledgePacks(session.guildId, packIds);
+      return res.json({ ok: true, packIds });
+    } catch (error) {
+      logger.error("Could not save knowledge packs", error);
+      return res.status(400).json({ error: "knowledge-failed" });
     }
   });
 

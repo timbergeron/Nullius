@@ -42,6 +42,7 @@ export class FileStore {
       openRouterKey: existing?.openRouterKey || null,
       trialUsed: existing?.trialUsed || 0,
       monthlyLimitUsd: existing?.monthlyLimitUsd || monthlyLimitUsd,
+      knowledgePacks: existing?.knowledgePacks || [],
       usage: existing?.usage || { month: currentMonth(), cost: 0 },
       ...existing,
       ownerId,
@@ -56,6 +57,18 @@ export class FileStore {
     guild.nickname = nickname;
     guild.updatedAt = new Date().toISOString();
     await this.persist();
+  }
+
+  async setKnowledgePacks(guildId, packIds) {
+    const guild = this.requireGuild(guildId);
+    guild.knowledgePacks = [...new Set(packIds.map(String))].sort();
+    guild.updatedAt = new Date().toISOString();
+    await this.persist();
+    return guild.knowledgePacks;
+  }
+
+  getKnowledgePacks(guildId) {
+    return this.data.guilds[guildId]?.knowledgePacks || [];
   }
 
   async setOpenRouterKey(guildId, apiKey) {
