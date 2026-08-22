@@ -1,0 +1,176 @@
+.guide-body {
+  display: block;
+}
+
+.guide-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+}
+
+.guide-header > a:last-child {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.guide-main {
+  display: block;
+  width: min(100% - 32px, 760px);
+  margin-inline: auto;
+  padding: 56px 0 80px;
+}
+
+.guide {
+  line-height: 1.65;
+}
+
+.guide-intro {
+  max-width: 650px;
+  margin-bottom: 42px;
+}
+
+.guide-intro h1 {
+  margin: 6px 0 14px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.8rem, 10vw, 5rem);
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+
+.guide-intro > p:last-child {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+
+.guide-nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 24px;
+  margin-bottom: 52px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.guide-nav strong {
+  grid-column: 1 / -1;
+  margin-bottom: 3px;
+}
+
+.guide-nav a,
+.guide section a {
+  color: var(--accent-hover);
+  text-underline-offset: 3px;
+}
+
+.guide section {
+  scroll-margin-top: 24px;
+  padding: 46px 0;
+  border-top: 1px solid var(--line);
+}
+
+.step-label {
+  margin: 0 0 3px;
+  color: var(--green);
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.guide h2 {
+  margin: 0 0 18px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.8rem, 6vw, 2.5rem);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 1.12;
+}
+
+.guide li + li {
+  margin-top: 9px;
+}
+
+.guide code {
+  border-radius: 4px;
+  background: rgb(127 122 108 / 12%);
+  padding: 0.12em 0.35em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88em;
+}
+
+.guide pre {
+  overflow-x: auto;
+  margin: 20px 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #1b1c19;
+  color: #f4f1e9;
+  line-height: 1.55;
+}
+
+.guide pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.82rem;
+}
+
+.note,
+.warning {
+  margin: 22px 0;
+  padding: 16px 18px;
+  border-left: 3px solid var(--green);
+  border-radius: 5px 12px 12px 5px;
+  background: rgb(67 130 99 / 10%);
+}
+
+.warning {
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.troubleshooting-list dt {
+  margin-top: 20px;
+  font-weight: 750;
+}
+
+.troubleshooting-list dd {
+  margin: 3px 0 0;
+  color: var(--muted);
+}
+
+.footer-links {
+  display: flex;
+  gap: 20px;
+}
+
+.guide-body footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 24px 0 32px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 560px) {
+  .guide-main {
+    padding-top: 38px;
+  }
+
+  .guide-nav {
+    grid-template-columns: 1fr;
+  }
+
+  .guide-nav strong {
+    grid-column: auto;
+  }
+
+  .guide ol,
+  .guide ul {
+    padding-left: 22px;
+  }
+}

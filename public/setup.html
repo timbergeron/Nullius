@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#11110f">
+    <meta name="description" content="Configure, deploy, and test the Nullius Discord bot.">
+    <title>Nullius setup guide</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="setup.css">
+  </head>
+  <body class="guide-body">
+    <header class="site-header guide-header">
+      <a class="wordmark" href="./" aria-label="Nullius home">Nullius<span aria-hidden="true">.</span></a>
+      <a href="./">Open setup</a>
+    </header>
+
+    <main class="guide-main">
+      <article class="guide">
+        <header class="guide-intro">
+          <p class="eyebrow">Administrator guide</p>
+          <h1>Set up Nullius</h1>
+          <p>Configure one Discord application, deploy one Node service, and connect OpenRouter. Nullius answers only when its bot user is mentioned and does not store conversation text.</p>
+        </header>
+
+        <nav class="guide-nav" aria-label="On this page">
+          <strong>On this page</strong>
+          <a href="#discord">Discord application</a>
+          <a href="#server">VPS configuration</a>
+          <a href="#openrouter">OpenRouter and models</a>
+          <a href="#install">Install in Discord</a>
+          <a href="#test">Test the bot</a>
+          <a href="#troubleshooting">Troubleshooting</a>
+        </nav>
+
+        <section id="discord">
+          <p class="step-label">Step 1</p>
+          <h2>Create the Discord application</h2>
+          <ol>
+            <li>Open the <a href="https://discord.com/developers/applications">Discord Developer Portal</a>, choose <strong>New Application</strong>, and name it Nullius.</li>
+            <li>Under <strong>General Information</strong>, copy the <strong>Application ID</strong>. This is <code>DISCORD_CLIENT_ID</code>.</li>
+            <li>Under <strong>OAuth2 → General</strong>, reset and copy the <strong>Client Secret</strong>. This is <code>DISCORD_CLIENT_SECRET</code>.</li>
+            <li>Add <code>https://timbergeron.com/nullius/auth/discord/callback</code> as an OAuth2 redirect and save it.</li>
+            <li>Under <strong>Bot</strong>, reset and copy the bot token. This is <code>DISCORD_BOT_TOKEN</code>.</li>
+            <li>Under <strong>Privileged Gateway Intents</strong>, enable <strong>Message Content Intent</strong> and save the change.</li>
+            <li>Enable <strong>Requires OAuth2 Code Grant</strong> if Discord displays that option.</li>
+          </ol>
+          <aside class="warning"><strong>Keep secrets private.</strong> The client secret and bot token are passwords. Never paste them into chat, a web page, or Git.</aside>
+          <p>You can set the bot avatar under <strong>Bot</strong> and the application icon under <strong>General Information</strong>. A square PNG or JPG of at least 512×512 works well.</p>
+        </section>
+
+        <section id="server">
+          <p class="step-label">Step 2</p>
+          <h2>Configure the VPS</h2>
+          <p>Nullius is deployed at <code>/home/woods/codedev/Nullius</code> and listens locally on port <code>3011</code>.</p>
+          <pre><code>ssh -i ~/.ssh/laq1.pem woods@la.quakeone.com
+cd ~/codedev/Nullius
+nano .env</code></pre>
+          <p>Set the production values below. Generate <code>APP_SECRET</code> with <code>openssl rand -hex 32</code>.</p>
+          <pre><code>PUBLIC_URL=https://timbergeron.com/nullius
+PORT=3011
+APP_SECRET=replace-with-a-generated-secret
+
+DISCORD_CLIENT_ID=replace-with-application-id
+DISCORD_CLIENT_SECRET=replace-with-client-secret
+DISCORD_BOT_TOKEN=replace-with-bot-token
+
+OPENROUTER_API_KEY=
+OPENROUTER_MODEL=deepseek/deepseek-v4-flash</code></pre>
+          <p>Protect the file, install dependencies, and verify the project:</p>
+          <pre><code>chmod 600 .env
+npm ci --omit=dev
+npm run check
+npm test</code></pre>
+          <p>Install the prepared service and Nginx route:</p>
+          <pre><code>sudo cp deploy/nullius.service /etc/systemd/system/nullius.service
+sudo cp deploy/nginx-location.conf /etc/nginx/snippets/nullius.conf
+sudo systemctl daemon-reload
+sudo systemctl enable --now nullius
+sudo nginx -t
+sudo systemctl reload nginx</code></pre>
+          <aside class="note">The HTTPS server block for <code>timbergeron.com</code> must include <code>/etc/nginx/snippets/nullius.conf</code>. See the repository README for the exact Nginx include.</aside>
+        </section>
+
+        <section id="openrouter">
+          <p class="step-label">Step 3</p>
+          <h2>Connect OpenRouter and choose a model</h2>
+          <p>Nullius needs an OpenRouter key before it can generate an answer. Choose either approach:</p>
+          <ul>
+            <li><strong>Operator-funded trial:</strong> set <code>OPENROUTER_API_KEY</code> in the VPS <code>.env</code>. Each installed server receives the configured number of trial answers.</li>
+            <li><strong>Server-owned account:</strong> leave the operator key blank and have the server owner choose <strong>Connect OpenRouter</strong> on the Nullius setup page.</li>
+          </ul>
+          <p>The model applies to every server. To use DeepSeek V4 Flash:</p>
+          <pre><code>OPENROUTER_MODEL=deepseek/deepseek-v4-flash</code></pre>
+          <p>After changing any environment value, restart Nullius:</p>
+          <pre><code>sudo systemctl restart nullius</code></pre>
+        </section>
+
+        <section id="install">
+          <p class="step-label">Step 4</p>
+          <h2>Install Nullius in a server</h2>
+          <ol>
+            <li>Open <a href="https://timbergeron.com/nullius/">timbergeron.com/nullius</a>.</li>
+            <li>Choose <strong>Add to Discord</strong>, select the server, and approve the requested permissions.</li>
+            <li>Return to the setup page. Optionally set a server nickname.</li>
+            <li>If no operator trial key is configured, choose <strong>Connect OpenRouter</strong> and authorize a server-owned key.</li>
+          </ol>
+          <p>Nullius requests only the channel access required to view messages, read reply history, send replies, send in threads, and change its own nickname.</p>
+        </section>
+
+        <section id="test">
+          <p class="step-label">Step 5</p>
+          <h2>Test the bot</h2>
+          <p>Choose <strong>Copy prompt &amp; open Discord</strong> on the setup page, paste the prompt into a channel Nullius can access, and send it. You can also mention the bot manually:</p>
+          <pre><code>@Nullius what can you help with?</code></pre>
+          <p>To test conversation context, reply to an existing message and add:</p>
+          <pre><code>@Nullius explain this in simple terms</code></pre>
+          <aside class="warning"><strong>Select the bot, not its role.</strong> Discord creates an automatic managed role named Nullius. In mention autocomplete, choose the entry marked <strong>APP</strong> or <strong>BOT</strong> with the bot avatar. A role mention looks similar but does not summon the current V1.</aside>
+        </section>
+
+        <section id="troubleshooting">
+          <p class="step-label">Reference</p>
+          <h2>Troubleshooting</h2>
+          <dl class="troubleshooting-list">
+            <dt>Nothing happens after a mention</dt>
+            <dd>Confirm you mentioned the APP/BOT user rather than the managed role. Also check that Nullius can view the channel, send messages, and read message history.</dd>
+            <dt>The service reports “Used disallowed intents”</dt>
+            <dd>Enable <strong>Message Content Intent</strong> under Discord Developer Portal → Bot → Privileged Gateway Intents, save, then restart the service.</dd>
+            <dt>Nullius says an admin must finish setup</dt>
+            <dd>Install it through the public setup page so the Discord server is recorded, then connect OpenRouter or configure the operator trial key.</dd>
+            <dt>Nullius cannot generate an answer</dt>
+            <dd>Confirm OpenRouter is connected, the account has credit, and <code>OPENROUTER_MODEL</code> contains a valid OpenRouter model ID.</dd>
+          </dl>
+          <p>Useful health and log commands:</p>
+          <pre><code>curl https://timbergeron.com/nullius/healthz
+sudo systemctl status nullius
+sudo journalctl -u nullius -n 100 --no-pager</code></pre>
+          <p>A healthy response is <code>{"ok":true,"discord":true}</code>.</p>
+        </section>
+      </article>
+    </main>
+
+    <footer>
+      <span>Quiet until asked.</span>
+      <span class="footer-links">
+        <a href="./">Setup</a>
+        <a href="https://github.com/timbergeron/Nullius">GitHub</a>
+      </span>
+    </footer>
+  </body>
+</html>

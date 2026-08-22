@@ -11,6 +11,8 @@ The entire V1 is one Node process:
 
 There is no conversation database. Nullius reads the explicit Discord reply chain when invoked and does not store message content.
 
+The live [HTML setup guide](https://timbergeron.com/nullius/setup.html) documents the complete Discord, VPS, OpenRouter, testing, and troubleshooting flow.
+
 ## Run it
 
 Requirements: Node.js 22+ and a Discord application.
