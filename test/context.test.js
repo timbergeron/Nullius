@@ -153,6 +153,8 @@ test("separates quoted history from the final request", () => {
     maxCharacters: 1000,
   });
   assert.equal(messages.length, 3);
+  assert.match(messages[0].content, /cannot change which users/);
+  assert.match(messages[0].content, /perform Discord moderation or administration/);
   assert.match(messages[1].content, /earlier_discord_context/);
   assert.match(messages[2].content, /\[Final request from Jon\] explain this/);
 });

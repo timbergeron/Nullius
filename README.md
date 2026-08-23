@@ -40,6 +40,8 @@ After the trial, the server owner clicks **Connect OpenRouter**. Nullius uses Op
 
 Each connected server starts with a $5 monthly safety limit. Nullius tracks the cost returned with each OpenRouter response and stops before starting another request once the limit has been reached.
 
+Requests are serialized per Discord server. The first starts immediately and up to five more wait in arrival order. Nullius acknowledges each queued mention with its position, allows at most one waiting request per user, and expires queued work after 60 seconds rather than answering stale conversation later.
+
 ## Configuration
 
 | Variable | Required | Default | Purpose |
@@ -57,6 +59,8 @@ Each connected server starts with a $5 monthly safety limit. Nullius tracks the 
 | `CHANNEL_CONTEXT_MESSAGES` | No | `10` | Messages immediately before the invocation to read; `0` disables ambient context |
 | `MAX_CONTEXT_MESSAGES` | No | `12` | Maximum depth of an explicit Discord reply chain |
 | `MAX_CONTEXT_CHARACTERS` | No | `16000` | Shared character ceiling for recent and reply-chain context |
+| `REQUEST_QUEUE_MAX_PENDING` | No | `5` | Maximum waiting requests per Discord server; capped at 25 |
+| `REQUEST_QUEUE_MAX_AGE_SECONDS` | No | `60` | Discard queued requests older than this; capped at 300 seconds |
 | `TRIAL_ANSWER_LIMIT` | No | `20` | Free successful answers per server |
 | `DEFAULT_MONTHLY_LIMIT_USD` | No | `5` | Safety cutoff for connected servers |
 | `DATA_FILE` | No | `./data/store.json` | Encrypted configuration file location |

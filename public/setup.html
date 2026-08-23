@@ -73,7 +73,10 @@ MAX_RETRY_OUTPUT_TOKENS=4096
 
 CHANNEL_CONTEXT_MESSAGES=10
 MAX_CONTEXT_MESSAGES=12
-MAX_CONTEXT_CHARACTERS=16000</code></pre>
+MAX_CONTEXT_CHARACTERS=16000
+
+REQUEST_QUEUE_MAX_PENDING=5
+REQUEST_QUEUE_MAX_AGE_SECONDS=60</code></pre>
           <p>Protect the file, install dependencies, and verify the project:</p>
           <pre><code>chmod 600 .env
 npm ci --omit=dev
@@ -126,6 +129,7 @@ MAX_RETRY_OUTPUT_TOKENS=4096</code></pre>
           <p>To test conversation context, reply to an existing message and add:</p>
           <pre><code>@Nullius explain this in simple terms</code></pre>
           <p>A reply is optional: every invocation includes up to the ten immediately preceding messages from that channel or thread. Explicit reply chains are merged in when they reach further back. The combined text is limited by <code>MAX_CONTEXT_CHARACTERS</code>, used only for that request, and never stored. Set <code>CHANNEL_CONTEXT_MESSAGES=0</code> to restore reply-chain-only behavior.</p>
+          <p>If several people mention Nullius together, it processes the requests in arrival order. Up to five can wait, with one waiting request per user. Queued requests expire after 60 seconds so an old prompt does not interrupt a later conversation. Configure those bounds with <code>REQUEST_QUEUE_MAX_PENDING</code> and <code>REQUEST_QUEUE_MAX_AGE_SECONDS</code>.</p>
           <aside class="warning"><strong>Select the bot, not its role.</strong> Discord creates an automatic managed role named Nullius. In mention autocomplete, choose the entry marked <strong>APP</strong> or <strong>BOT</strong> with the bot avatar. A role mention looks similar but does not summon the current V1.</aside>
         </section>
 

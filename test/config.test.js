@@ -27,3 +27,21 @@ test("allows recent channel context to be disabled and caps Discord fetches", ()
     /must be zero or a positive number/,
   );
 });
+
+test("applies bounded request queue defaults and overrides", () => {
+  const defaults = loadConfig(requiredEnv).queue;
+  assert.equal(defaults.maxPending, 5);
+  assert.equal(defaults.maxAgeMs, 60_000);
+
+  const capped = loadConfig({
+    ...requiredEnv,
+    REQUEST_QUEUE_MAX_PENDING: "100",
+    REQUEST_QUEUE_MAX_AGE_SECONDS: "1000",
+  }).queue;
+  assert.equal(capped.maxPending, 25);
+  assert.equal(capped.maxAgeMs, 300_000);
+  assert.equal(
+    loadConfig({ ...requiredEnv, REQUEST_QUEUE_MAX_PENDING: "0.5" }).queue.maxPending,
+    1,
+  );
+});

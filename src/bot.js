@@ -9,6 +9,7 @@ import {
   stripBotMention,
 } from "./context.js";
 import { OpenRouterError } from "./openrouter.js";
+import { RequestQueue } from "./queue.js";
 
 function splitDiscordMessage(text, limit = 1900) {
   const parts = [];
@@ -65,44 +66,13 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
     ],
   });
   const cooldowns = new Map();
-  const busyGuilds = new Set();
 
   client.once(Events.ClientReady, (readyClient) => {
     readyClient.user.setPresence({ status: "online" });
     logger.info(`Nullius is online as ${readyClient.user.tag}`);
   });
 
-  client.on(Events.MessageCreate, async (message) => {
-    if (!client.user || message.author.bot || !message.guildId) return;
-    if (!message.mentions.users.has(client.user.id)) return;
-
-    const question = stripBotMention(message.content || "", client.user.id);
-    if (!question && !message.reference?.messageId) {
-      await replyWithoutPings(message, "Reply to something and ask me about it.");
-      return;
-    }
-
-    const guildConfig = store.getGuild(message.guildId);
-    if (!guildConfig) {
-      await replyWithoutPings(
-        message,
-        `A server admin needs to finish my setup first: ${config.publicUrl}`,
-      );
-      return;
-    }
-
-    const cooldownKey = `${message.guildId}:${message.author.id}`;
-    const now = Date.now();
-    if ((cooldowns.get(cooldownKey) || 0) > now) return;
-    cooldowns.set(cooldownKey, now + config.userCooldownMs);
-    if (cooldowns.size > 10_000) cooldowns.clear();
-
-    if (busyGuilds.has(message.guildId)) {
-      await replyWithoutPings(message, "One moment—I’m answering another question here.");
-      return;
-    }
-    busyGuilds.add(message.guildId);
-
+  async function answerMessage(message, question) {
     try {
       const refreshedConfig = store.getGuild(message.guildId);
       const ownerKey = store.getOpenRouterKey(message.guildId);
@@ -176,8 +146,77 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
         ? `I couldn’t use this server’s OpenRouter connection. An admin can reconnect it at ${config.publicUrl}`
         : "I hit a temporary problem. Try again in a moment.";
       await replyWithoutPings(message, response).catch(() => {});
-    } finally {
-      busyGuilds.delete(message.guildId);
+    }
+  }
+
+  const requestQueue = new RequestQueue({
+    maxPending: config.queue.maxPending,
+    maxAgeMs: config.queue.maxAgeMs,
+    handle: ({ message, question }) => answerMessage(message, question),
+    onExpired: ({ message }) => replyWithoutPings(
+      message,
+      "I couldn’t reach that queued request before it expired. Mention me again if you still need it.",
+    ).catch(() => {}),
+    logger,
+  });
+
+  client.on(Events.MessageCreate, async (message) => {
+    if (!client.user || message.author.bot || !message.guildId) return;
+    if (!message.mentions.users.has(client.user.id)) return;
+
+    const question = stripBotMention(message.content || "", client.user.id);
+    if (!question && !message.reference?.messageId) {
+      await replyWithoutPings(message, "Reply to something and ask me about it.").catch(() => {});
+      return;
+    }
+
+    const guildConfig = store.getGuild(message.guildId);
+    if (!guildConfig) {
+      await replyWithoutPings(
+        message,
+        `A server admin needs to finish my setup first: ${config.publicUrl}`,
+      ).catch(() => {});
+      return;
+    }
+
+    const cooldownKey = `${message.guildId}:${message.author.id}`;
+    const now = Date.now();
+    const retryAt = cooldowns.get(cooldownKey) || 0;
+    if (!requestQueue.isActive(message.guildId) && retryAt > now) {
+      const seconds = Math.max(1, Math.ceil((retryAt - now) / 1000));
+      await replyWithoutPings(
+        message,
+        `Give me ${seconds} more second${seconds === 1 ? "" : "s"} before another request.`,
+      ).catch(() => {});
+      return;
+    }
+
+    const queued = requestQueue.enqueue(message.guildId, {
+      message,
+      question,
+      userId: message.author.id,
+    });
+    if (queued.status === "started" || queued.status === "queued") {
+      cooldowns.set(cooldownKey, now + config.userCooldownMs);
+      if (cooldowns.size > 10_000) cooldowns.clear();
+    }
+
+    if (queued.status === "queued") {
+      const noun = queued.position === 1 ? "request" : "requests";
+      await replyWithoutPings(
+        message,
+        `Queued—${queued.position} ${noun} ahead of you.`,
+      ).catch(() => {});
+    } else if (queued.status === "duplicate") {
+      await replyWithoutPings(
+        message,
+        "You already have a request waiting in the queue.",
+      ).catch(() => {});
+    } else if (queued.status === "full") {
+      await replyWithoutPings(
+        message,
+        "The request queue is full right now. Try again shortly.",
+      ).catch(() => {});
     }
   });
 

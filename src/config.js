@@ -74,6 +74,22 @@ export function loadConfig(env = process.env) {
         positiveNumber(env.MAX_CONTEXT_CHARACTERS, 16000, "MAX_CONTEXT_CHARACTERS"),
       ),
     },
+    queue: {
+      maxPending: Math.min(
+        Math.max(
+          1,
+          Math.floor(
+            positiveNumber(env.REQUEST_QUEUE_MAX_PENDING, 5, "REQUEST_QUEUE_MAX_PENDING"),
+          ),
+        ),
+        25,
+      ),
+      maxAgeMs:
+        Math.min(
+          positiveNumber(env.REQUEST_QUEUE_MAX_AGE_SECONDS, 60, "REQUEST_QUEUE_MAX_AGE_SECONDS"),
+          300,
+        ) * 1000,
+    },
     knowledge: {
       enabled: env.KNOWLEDGE_ENABLED?.trim() !== "false",
       packsDirectory: path.resolve(env.KNOWLEDGE_PACKS_DIR?.trim() || "./knowledge-packs"),
