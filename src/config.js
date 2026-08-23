@@ -45,7 +45,10 @@ export function loadConfig(env = process.env) {
         "DEFAULT_MONTHLY_LIMIT_USD",
       ),
       maxOutputTokens: Math.floor(
-        positiveNumber(env.MAX_OUTPUT_TOKENS, 350, "MAX_OUTPUT_TOKENS"),
+        positiveNumber(env.MAX_OUTPUT_TOKENS, 1600, "MAX_OUTPUT_TOKENS"),
+      ),
+      retryOutputTokens: Math.floor(
+        positiveNumber(env.MAX_RETRY_OUTPUT_TOKENS, 4096, "MAX_RETRY_OUTPUT_TOKENS"),
       ),
     },
     context: {

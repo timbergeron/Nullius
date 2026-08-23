@@ -13,6 +13,7 @@ async function main() {
   const openRouter = new OpenRouterClient({
     model: config.openRouter.model,
     maxOutputTokens: config.openRouter.maxOutputTokens,
+    retryOutputTokens: config.openRouter.retryOutputTokens,
     publicUrl: config.publicUrl,
   });
   const knowledge = await new KnowledgeManager({

@@ -26,13 +26,18 @@ async function readResponse(response) {
 }
 
 export class OpenRouterClient {
-  constructor({ model, maxOutputTokens, publicUrl }) {
+  constructor({ model, maxOutputTokens, retryOutputTokens, publicUrl, logger = console }) {
     this.model = model;
     this.maxOutputTokens = maxOutputTokens;
+    this.retryOutputTokens = Math.max(
+      maxOutputTokens,
+      retryOutputTokens || maxOutputTokens * 2,
+    );
     this.publicUrl = publicUrl;
+    this.logger = logger;
   }
 
-  async complete({ apiKey, messages, sessionId, userId }) {
+  async requestCompletion({ apiKey, messages, sessionId, userId, maxCompletionTokens }) {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -44,25 +49,68 @@ export class OpenRouterClient {
       body: JSON.stringify({
         model: this.model,
         messages,
-        max_tokens: this.maxOutputTokens,
+        max_completion_tokens: maxCompletionTokens,
         temperature: 0.35,
         session_id: sessionId,
         user: createHash("sha256").update(`discord:${userId}`).digest("hex").slice(0, 32),
       }),
       signal: AbortSignal.timeout(60_000),
     });
-    const body = await readResponse(response);
-    const content = body?.choices?.[0]?.message?.content;
-    const text = Array.isArray(content)
-      ? content.map((part) => part?.text || "").join("")
-      : content;
-    if (!text?.trim()) throw new OpenRouterError("The model returned an empty answer", 502);
+    return readResponse(response);
+  }
 
-    return {
-      text: text.trim(),
-      cost: Number(body?.usage?.cost) || 0,
-      model: body?.model || this.model,
-    };
+  async complete({ apiKey, messages, sessionId, userId }) {
+    const limits = [...new Set([this.maxOutputTokens, this.retryOutputTokens])];
+    let totalCost = 0;
+
+    for (let attempt = 0; attempt < limits.length; attempt += 1) {
+      const body = await this.requestCompletion({
+        apiKey,
+        messages,
+        sessionId,
+        userId,
+        maxCompletionTokens: limits[attempt],
+      });
+      totalCost += Number(body?.usage?.cost) || 0;
+      const choice = body?.choices?.[0] || {};
+      const content = choice.message?.content;
+      const finishReason = choice.finish_reason || choice.native_finish_reason || "";
+      const reasoningTokens = Number(
+        body?.usage?.completion_tokens_details?.reasoning_tokens,
+      ) || 0;
+      const completionTokens = Number(body?.usage?.completion_tokens) || 0;
+      const text = Array.isArray(content)
+        ? content.map((part) => part?.text || "").join("")
+        : content;
+      const complete = Boolean(text?.trim()) && finishReason !== "length";
+
+      if (complete) {
+        return {
+          text: text.trim(),
+          cost: totalCost,
+          model: body?.model || this.model,
+        };
+      }
+
+      if (attempt + 1 < limits.length) {
+        this.logger.warn?.("Retrying truncated OpenRouter completion", {
+          model: body?.model || this.model,
+          finishReason: finishReason || "empty",
+          contentCharacters: typeof text === "string" ? text.length : 0,
+          completionTokens,
+          reasoningTokens,
+          nextMaxCompletionTokens: limits[attempt + 1],
+        });
+        continue;
+      }
+
+      const reason = finishReason === "length"
+        ? `The model exhausted ${limits[attempt]} completion tokens before finishing`
+        : "The model returned an empty answer";
+      throw new OpenRouterError(reason, 502);
+    }
+
+    throw new OpenRouterError("The model returned an empty answer", 502);
   }
 
   async validateKey(apiKey) {

@@ -36,7 +36,7 @@ Set `OPENROUTER_API_KEY` to fund the optional free trial. A successful answer co
 
 After the trial, the server owner clicks **Connect OpenRouter**. Nullius uses OpenRouter's PKCE authorization flow to receive a dedicated key, validates it, and stores it encrypted with `APP_SECRET`. Users never paste a credential into Nullius.
 
-`OPENROUTER_MODEL` defaults to `openrouter/auto`. Responses are capped at 350 output tokens and the system prompt asks for two or three sentences by default.
+`OPENROUTER_MODEL` defaults to `openrouter/auto`. The system prompt asks for two or three sentences by default. Nullius normally allows up to 1,600 completion tokens because reasoning models count hidden reasoning against that budget. If OpenRouter returns an empty or length-limited result, Nullius retries once with a 4,096-token ceiling. These are ceilings, not requested answer lengths.
 
 Each connected server starts with a $5 monthly safety limit. Nullius tracks the cost returned with each OpenRouter response and stops before starting another request once the limit has been reached.
 
@@ -52,6 +52,8 @@ Each connected server starts with a $5 monthly safety limit. Nullius tracks the 
 | `DISCORD_BOT_TOKEN` | Yes | — | Shared Nullius bot token |
 | `OPENROUTER_API_KEY` | No | — | Operator-funded trial key |
 | `OPENROUTER_MODEL` | No | `openrouter/auto` | One server-controlled model/router |
+| `MAX_OUTPUT_TOKENS` | No | `1600` | Normal OpenRouter completion-token ceiling |
+| `MAX_RETRY_OUTPUT_TOKENS` | No | `4096` | One-time retry ceiling for an empty or length-limited result |
 | `TRIAL_ANSWER_LIMIT` | No | `20` | Free successful answers per server |
 | `DEFAULT_MONTHLY_LIMIT_USD` | No | `5` | Safety cutoff for connected servers |
 | `DATA_FILE` | No | `./data/store.json` | Encrypted configuration file location |
