@@ -20,7 +20,7 @@
         <header class="guide-intro">
           <p class="eyebrow">Administrator guide</p>
           <h1>Set up Nullius</h1>
-          <p>Configure one Discord application, deploy one Node service, and connect OpenRouter. Nullius answers only when its bot user is mentioned and does not store conversation text.</p>
+          <p>Configure one Discord application, deploy one Node service, and connect OpenRouter. Only when its bot user is mentioned, Nullius reads the ten preceding channel messages and any explicit reply chain. It does not store conversation text.</p>
         </header>
 
         <nav class="guide-nav" aria-label="On this page">
@@ -69,7 +69,11 @@ DISCORD_BOT_TOKEN=replace-with-bot-token
 OPENROUTER_API_KEY=
 OPENROUTER_MODEL=deepseek/deepseek-v4-flash
 MAX_OUTPUT_TOKENS=1600
-MAX_RETRY_OUTPUT_TOKENS=4096</code></pre>
+MAX_RETRY_OUTPUT_TOKENS=4096
+
+CHANNEL_CONTEXT_MESSAGES=10
+MAX_CONTEXT_MESSAGES=12
+MAX_CONTEXT_CHARACTERS=16000</code></pre>
           <p>Protect the file, install dependencies, and verify the project:</p>
           <pre><code>chmod 600 .env
 npm ci --omit=dev
@@ -121,6 +125,7 @@ MAX_RETRY_OUTPUT_TOKENS=4096</code></pre>
           <pre><code>@Nullius what can you help with?</code></pre>
           <p>To test conversation context, reply to an existing message and add:</p>
           <pre><code>@Nullius explain this in simple terms</code></pre>
+          <p>A reply is optional: every invocation includes up to the ten immediately preceding messages from that channel or thread. Explicit reply chains are merged in when they reach further back. The combined text is limited by <code>MAX_CONTEXT_CHARACTERS</code>, used only for that request, and never stored. Set <code>CHANNEL_CONTEXT_MESSAGES=0</code> to restore reply-chain-only behavior.</p>
           <aside class="warning"><strong>Select the bot, not its role.</strong> Discord creates an automatic managed role named Nullius. In mention autocomplete, choose the entry marked <strong>APP</strong> or <strong>BOT</strong> with the bot avatar. A role mention looks similar but does not summon the current V1.</aside>
         </section>
 

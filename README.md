@@ -1,6 +1,6 @@
 # Nullius
 
-Nullius is a quiet, mention-only AI bot for Discord. Reply to a message with `@Nullius explain this` and it answers from that reply chain in a few sentences.
+Nullius is a quiet, mention-only AI bot for Discord. Mention it in a channel and it answers from the ten preceding messages, plus any explicit reply chain, in a few sentences.
 
 The entire V1 is one Node process:
 
@@ -9,7 +9,7 @@ The entire V1 is one Node process:
 - a small encrypted file for per-server configuration;
 - OpenRouter OAuth and chat completions.
 
-There is no conversation database. Nullius reads the explicit Discord reply chain when invoked and does not store message content.
+There is no conversation database. Only when invoked, Nullius reads a bounded recent-channel window and any explicit reply chain. It does not store message content.
 
 The live [HTML setup guide](https://timbergeron.com/nullius/setup.html) documents the complete Discord, VPS, OpenRouter, testing, and troubleshooting flow.
 
@@ -54,6 +54,9 @@ Each connected server starts with a $5 monthly safety limit. Nullius tracks the 
 | `OPENROUTER_MODEL` | No | `openrouter/auto` | One server-controlled model/router |
 | `MAX_OUTPUT_TOKENS` | No | `1600` | Normal OpenRouter completion-token ceiling |
 | `MAX_RETRY_OUTPUT_TOKENS` | No | `4096` | One-time retry ceiling for an empty or length-limited result |
+| `CHANNEL_CONTEXT_MESSAGES` | No | `10` | Messages immediately before the invocation to read; `0` disables ambient context |
+| `MAX_CONTEXT_MESSAGES` | No | `12` | Maximum depth of an explicit Discord reply chain |
+| `MAX_CONTEXT_CHARACTERS` | No | `16000` | Shared character ceiling for recent and reply-chain context |
 | `TRIAL_ANSWER_LIMIT` | No | `20` | Free successful answers per server |
 | `DEFAULT_MONTHLY_LIMIT_USD` | No | `5` | Safety cutoff for connected servers |
 | `DATA_FILE` | No | `./data/store.json` | Encrypted configuration file location |

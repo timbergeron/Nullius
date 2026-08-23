@@ -15,6 +15,15 @@ function positiveNumber(value, fallback, name) {
   return parsed;
 }
 
+function nonNegativeInteger(value, fallback, name, maximum) {
+  if (value === undefined || value === "") return fallback;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`${name} must be zero or a positive number`);
+  }
+  return Math.min(Math.floor(parsed), maximum);
+}
+
 export function loadConfig(env = process.env) {
   const appSecret = required(env, "APP_SECRET");
   if (appSecret.length < 32) {
@@ -52,6 +61,12 @@ export function loadConfig(env = process.env) {
       ),
     },
     context: {
+      recentMessages: nonNegativeInteger(
+        env.CHANNEL_CONTEXT_MESSAGES,
+        10,
+        "CHANNEL_CONTEXT_MESSAGES",
+        100,
+      ),
       maxMessages: Math.floor(
         positiveNumber(env.MAX_CONTEXT_MESSAGES, 12, "MAX_CONTEXT_MESSAGES"),
       ),

@@ -3,7 +3,11 @@ import {
   Events,
   GatewayIntentBits,
 } from "discord.js";
-import { buildLlmMessages, collectReplyChain, stripBotMention } from "./context.js";
+import {
+  buildLlmMessages,
+  collectConversationContext,
+  stripBotMention,
+} from "./context.js";
 import { OpenRouterError } from "./openrouter.js";
 
 function splitDiscordMessage(text, limit = 1900) {
@@ -32,11 +36,23 @@ async function replyWithoutPings(message, text) {
   }
 }
 
-// A reply-chain question is often "@Nullius explain this", so the message being replied
-// to carries the terms worth searching for.
-function retrievalQuery(chain, question, botId) {
-  const parent = chain.at(-2);
-  const quoted = parent ? stripBotMention(parent.content || "", botId).slice(0, 1000) : "";
+// A contextual question is often just "@Nullius explain this", so a directly referenced
+// message and the most recent conversation carry the terms worth searching for.
+function retrievalQuery(context, question, botId) {
+  const invocation = context.at(-1);
+  const history = context.slice(0, -1);
+  const referencedId = invocation?.reference?.messageId;
+  const referenced = referencedId
+    ? history.find((message) => message.id === referencedId)
+    : null;
+  const selected = new Map();
+  for (const message of [referenced, ...history.slice(-4)]) {
+    if (message?.id) selected.set(message.id, message);
+  }
+  const quoted = [...selected.values()]
+    .map((message) => stripBotMention(message.content || "", botId).slice(0, 500))
+    .filter(Boolean)
+    .join("\n");
   return [question, quoted].filter(Boolean).join("\n");
 }
 
@@ -113,11 +129,15 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
       }
 
       await message.channel.sendTyping().catch(() => {});
-      const chain = await collectReplyChain(message, config.context.maxMessages);
+      const context = await collectConversationContext(message, {
+        recentMessages: config.context.recentMessages,
+        maxReplyMessages: config.context.maxMessages,
+        logger,
+      });
       const retrieved = knowledge
         ? await knowledge.retrieve({
           packIds: refreshedConfig.knowledgePacks || [],
-          question: retrievalQuery(chain, question, client.user.id),
+          question: retrievalQuery(context, question, client.user.id),
         })
         : null;
       if (retrieved) {
@@ -127,12 +147,12 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
           }`,
         );
       }
-      const messages = buildLlmMessages(chain, {
+      const messages = buildLlmMessages(context, {
         botId: client.user.id,
         maxCharacters: config.context.maxCharacters,
         knowledge: retrieved,
       });
-      const rootMessageId = chain[0]?.id || message.id;
+      const rootMessageId = context[0]?.id || message.id;
       const answer = await openRouter.complete({
         apiKey,
         messages,
