@@ -105,6 +105,7 @@ sudo systemctl reload nginx</code></pre>
 MAX_OUTPUT_TOKENS=1600
 MAX_RETRY_OUTPUT_TOKENS=4096</code></pre>
           <p>Reasoning models count their hidden reasoning inside the completion-token budget. Nullius keeps answers concise, but allows a 1,600-token ceiling and retries once at 4,096 if OpenRouter reports that the first result was empty or stopped at the limit. Raising these values increases the maximum possible cost, not the requested answer length.</p>
+          <p>When an enabled knowledge module such as QSS-M supplies evidence, Nullius makes a second completion that adversarially checks the draft against that evidence before replying. Ordinary requests use one completion. Module-backed answers therefore normally cost about two model calls, and both reported costs count toward the server's monthly total.</p>
           <p>After changing any environment value, restart Nullius:</p>
           <pre><code>sudo systemctl restart nullius</code></pre>
         </section>

@@ -131,6 +131,12 @@ prompt as escaped JSON reference material with a file, row, or commit citation o
 passage. Free-form pack instructions are prohibited; a small validated `answerPolicy`
 controls source ordering, provenance, and default-value behavior.
 
+Answers that use a knowledge pack get an adversarial second model pass. The reviewer sees
+the same conversation and retrieved evidence plus the first draft, checks claims and
+citations skeptically, and returns only a corrected final answer. Ordinary requests stay
+single-pass. A reviewed answer therefore normally makes two billable model completions;
+their reported costs are added together for the server's monthly usage total.
+
 Each server chooses which installed packs apply, on the same setup page as the nickname.
 A pack with `activation.mode` of `auto` only joins an answer when the question mentions
 one of its bounded domain keywords, an identifier-shaped symbol it knows, or a plain symbol

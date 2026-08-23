@@ -105,7 +105,7 @@ test("retries an empty answer and fails cleanly if the retry is also empty", asy
   let calls = 0;
   globalThis.fetch = async () => {
     calls += 1;
-    return response(completion({ content: "" }));
+    return response(completion({ content: "", cost: 0.005 }));
   };
 
   await assert.rejects(
@@ -117,7 +117,8 @@ test("retries an empty answer and fails cleanly if the retry is also empty", asy
     }),
     (error) => error instanceof OpenRouterError
       && error.status === 502
-      && error.message === "The model returned an empty answer",
+      && error.message === "The model returned an empty answer"
+      && error.cost === 0.01,
   );
   assert.equal(calls, 2);
 });

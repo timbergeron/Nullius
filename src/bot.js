@@ -8,6 +8,7 @@ import {
   collectConversationContext,
   stripBotMention,
 } from "./context.js";
+import { completeAnswer } from "./answer.js";
 import { OpenRouterError } from "./openrouter.js";
 import { RequestQueue } from "./queue.js";
 
@@ -123,11 +124,14 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
         knowledge: retrieved,
       });
       const rootMessageId = context[0]?.id || message.id;
-      const answer = await openRouter.complete({
+      const answer = await completeAnswer({
+        openRouter,
         apiKey,
         messages,
         sessionId: `${message.guildId}:${rootMessageId}`,
         userId: message.author.id,
+        adversarialReview: Boolean(retrieved?.packs?.length),
+        logger,
       });
 
       if (usingTrial) await store.incrementTrial(message.guildId);

@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
 
 export class OpenRouterError extends Error {
-  constructor(message, status = 500) {
+  constructor(message, status = 500, cost = 0) {
     super(message);
     this.name = "OpenRouterError";
     this.status = status;
+    this.cost = cost;
   }
 }
 
@@ -107,7 +108,7 @@ export class OpenRouterClient {
       const reason = finishReason === "length"
         ? `The model exhausted ${limits[attempt]} completion tokens before finishing`
         : "The model returned an empty answer";
-      throw new OpenRouterError(reason, 502);
+      throw new OpenRouterError(reason, 502, totalCost);
     }
 
     throw new OpenRouterError("The model returned an empty answer", 502);
