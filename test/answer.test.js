@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  availablePremiumReviewModel,
   buildAdversarialReviewMessages,
   completeAnswer,
   knowledgeModelOverride,
+  knowledgeUsesPack,
 } from "../src/answer.js";
 import { OpenRouterError } from "../src/openrouter.js";
 
@@ -41,6 +43,22 @@ test("selects a configured model only for a pack that supplied evidence", () => 
     knowledgeModelOverride({ packs: [{ id: "qssm" }] }, models),
     "openai/gpt-5.6-luna-pro",
   );
+  assert.equal(knowledgeUsesPack(null, "qssm"), false);
+  assert.equal(knowledgeUsesPack({ packs: [{ id: "other" }] }, "qssm"), false);
+  assert.equal(knowledgeUsesPack({ packs: [{ id: "qssm" }] }, "qssm"), true);
+});
+
+test("offers the premium review model only while the pack's daily quota is available", () => {
+  const knowledge = { packs: [{ id: "qssm" }] };
+  const premium = { model: "openai/gpt-5.6-sol", dailyLimit: 1 };
+
+  assert.equal(availablePremiumReviewModel(null, "qssm", premium, { used: 0 }), "");
+  assert.equal(availablePremiumReviewModel(knowledge, "qssm", premium, { used: 0 }), premium.model);
+  assert.equal(availablePremiumReviewModel(knowledge, "qssm", premium, { used: 1 }), "");
+  assert.equal(
+    availablePremiumReviewModel(knowledge, "qssm", { ...premium, dailyLimit: 0 }, { used: 0 }),
+    "",
+  );
 });
 
 test("leaves ordinary answers single-pass", async () => {
@@ -76,13 +94,14 @@ test("adversarially reviews module answers and totals both completion costs", as
     openRouter,
     ...request,
     model: "openai/gpt-5.6-luna-pro",
+    reviewModel: "openai/gpt-5.6-sol",
     adversarialReview: true,
   });
 
   assert.equal(calls.length, 2);
   assert.deepEqual(calls[0].messages, request.messages);
   assert.equal(calls[0].model, "openai/gpt-5.6-luna-pro");
-  assert.equal(calls[1].model, "openai/gpt-5.6-luna-pro");
+  assert.equal(calls[1].model, "openai/gpt-5.6-sol");
   assert.equal(calls[1].messages.at(-2).content, "Plausible but wrong draft.");
   assert.match(calls[1].messages.at(-1).content, /Silently fix every issue/);
   assert.equal(answer.text, "Evidence-checked answer.");

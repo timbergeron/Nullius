@@ -1,5 +1,5 @@
 const ADVERSARIAL_REVIEW_PROMPT = `<adversarial_review>
-Treat the preceding assistant response as a draft. Before answering, perform a skeptical second-pass audit against the final request and all supplied context and evidence.
+Treat the preceding assistant response as a draft. Independently derive the best answer from the final request and supplied evidence before comparing it with the draft, then perform a skeptical second-pass audit.
 
 Check for incorrect or unsupported claims, contradictions with the evidence, citation mismatches, missed constraints, unjustified certainty, and important omissions. For code questions, verify named symbols, files, behavior, defaults, and historical claims against the supplied references. Do not invent support that is absent.
 
@@ -22,6 +22,17 @@ export function knowledgeModelOverride(knowledge, packModels = {}) {
   return "";
 }
 
+export function knowledgeUsesPack(knowledge, packId) {
+  return Boolean(knowledge?.packs?.some((pack) => pack.id === packId));
+}
+
+export function availablePremiumReviewModel(knowledge, packId, premium, usage) {
+  if (!knowledgeUsesPack(knowledge, packId)) return "";
+  const model = premium?.model?.trim();
+  const dailyLimit = Math.max(0, Math.floor(Number(premium?.dailyLimit) || 0));
+  return model && usage?.used < dailyLimit ? model : "";
+}
+
 export async function completeAnswer({
   openRouter,
   apiKey,
@@ -29,6 +40,7 @@ export async function completeAnswer({
   sessionId,
   userId,
   model = "",
+  reviewModel = "",
   adversarialReview = false,
   logger = console,
 }) {
@@ -39,6 +51,7 @@ export async function completeAnswer({
   try {
     const reviewed = await openRouter.complete({
       ...request,
+      model: reviewModel.trim() || model,
       messages: buildAdversarialReviewMessages(messages, draft.text),
     });
     return {

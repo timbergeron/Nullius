@@ -36,10 +36,15 @@ review, set the operator-controlled override and restart Nullius:
 
 ```bash
 QSSM_OPENROUTER_MODEL=openai/gpt-5.6-luna-pro
+QSSM_PREMIUM_OPENROUTER_MODEL=openai/gpt-5.6-sol
+QSSM_PREMIUM_DAILY_LIMIT=1
 ```
 
 When unset, QSS-M answers use the normal `OPENROUTER_MODEL`. The override is application
 configuration rather than pack policy so installing a pack cannot select a model or spend tier.
+When the premium model is set, the first QSS-M-backed answer per server each UTC day uses
+it for the final adversarial review; later answers use the regular QSS-M model. Only a
+successful premium review consumes the quota, and only the UTC date and count are stored.
 
 ## Check the answers
 

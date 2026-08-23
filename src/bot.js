@@ -8,7 +8,12 @@ import {
   collectConversationContext,
   stripBotMention,
 } from "./context.js";
-import { completeAnswer, knowledgeModelOverride } from "./answer.js";
+import {
+  availablePremiumReviewModel,
+  completeAnswer,
+  knowledgeModelOverride,
+  knowledgeUsesPack,
+} from "./answer.js";
 import { OpenRouterError } from "./openrouter.js";
 import { RequestQueue } from "./queue.js";
 import { maintainTyping } from "./typing.js";
@@ -126,6 +131,16 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
         knowledge: retrieved,
       });
       const rootMessageId = context[0]?.id || message.id;
+      const qssmPremium = config.openRouter.packPremium.qssm;
+      const qssmPremiumUsage = knowledgeUsesPack(retrieved, "qssm")
+        ? store.getDailyPremiumUsage(message.guildId, "qssm")
+        : null;
+      const premiumReviewModel = availablePremiumReviewModel(
+        retrieved,
+        "qssm",
+        qssmPremium,
+        qssmPremiumUsage,
+      );
       const answer = await completeAnswer({
         openRouter,
         apiKey,
@@ -133,10 +148,19 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
         sessionId: `${message.guildId}:${rootMessageId}`,
         userId: message.author.id,
         model: knowledgeModelOverride(retrieved, config.openRouter.packModels),
+        reviewModel: premiumReviewModel,
         adversarialReview: Boolean(retrieved?.packs?.length),
         logger,
       });
 
+      if (premiumReviewModel && answer.reviewed) {
+        await store.incrementDailyPremiumUsage(
+          message.guildId,
+          "qssm",
+          qssmPremiumUsage.day,
+        );
+        logger.info?.(`Premium knowledge review: qssm via ${premiumReviewModel}`);
+      }
       if (usingTrial) await store.incrementTrial(message.guildId);
       else await store.addUsageCost(message.guildId, answer.cost);
       await replyWithoutPings(message, answer.text);

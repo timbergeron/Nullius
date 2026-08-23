@@ -6,6 +6,10 @@ function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
 
+function utcDay(at = new Date()) {
+  return new Date(at).toISOString().slice(0, 10);
+}
+
 export class FileStore {
   constructor(filePath, secret) {
     this.filePath = filePath;
@@ -106,6 +110,26 @@ export class FileStore {
     guild.usage.cost += cost;
     guild.updatedAt = new Date().toISOString();
     await this.persist();
+  }
+
+  getDailyPremiumUsage(guildId, packId, at = new Date()) {
+    const guild = this.requireGuild(guildId);
+    const day = utcDay(at);
+    const usage = guild.dailyPremiumUsage?.[packId];
+    const used = usage?.day === day ? Number(usage.used) || 0 : 0;
+    return { day, used: Math.max(0, Math.floor(used)) };
+  }
+
+  async incrementDailyPremiumUsage(guildId, packId, at = new Date()) {
+    const guild = this.requireGuild(guildId);
+    const usage = this.getDailyPremiumUsage(guildId, packId, at);
+    if (!guild.dailyPremiumUsage || typeof guild.dailyPremiumUsage !== "object") {
+      guild.dailyPremiumUsage = {};
+    }
+    guild.dailyPremiumUsage[packId] = { day: usage.day, used: usage.used + 1 };
+    guild.updatedAt = new Date().toISOString();
+    await this.persist();
+    return structuredClone(guild.dailyPremiumUsage[packId]);
   }
 
   requireGuild(guildId) {

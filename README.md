@@ -42,6 +42,12 @@ After the trial, the server owner clicks **Connect OpenRouter**. Nullius uses Op
 operator-selected model. It applies to both the draft and adversarial review when QSS-M
 actually supplies evidence, and falls back to `OPENROUTER_MODEL` when unset.
 
+`QSSM_PREMIUM_OPENROUTER_MODEL` upgrades the final review for the first QSS-M-backed
+answer each UTC day per server. The daily limit defaults to one and can be changed or
+disabled with `QSSM_PREMIUM_DAILY_LIMIT`. A successful premium review consumes the quota;
+a failed attempt falls back to the draft and leaves it available. Nullius stores only the
+UTC date and count, not message content.
+
 Each connected server starts with a $5 monthly safety limit. Nullius tracks the cost returned with each OpenRouter response and stops before starting another request once the limit has been reached.
 
 Requests are serialized per Discord server. The first starts immediately and up to five more wait in arrival order. Nullius acknowledges each queued mention with its position, allows at most one waiting request per user, and expires queued work after 60 seconds rather than answering stale conversation later.
@@ -63,6 +69,8 @@ ends only after the answer or error response has finished sending.
 | `OPENROUTER_API_KEY` | No | — | Operator-funded trial key |
 | `OPENROUTER_MODEL` | No | `openrouter/auto` | One server-controlled model/router |
 | `QSSM_OPENROUTER_MODEL` | No | — | Optional model override for both passes of QSS-M-backed answers |
+| `QSSM_PREMIUM_OPENROUTER_MODEL` | No | — | Optional final-review model for the first daily QSS-M answer per server |
+| `QSSM_PREMIUM_DAILY_LIMIT` | No | `1` | Successful premium QSS-M reviews per server per UTC day; `0` disables |
 | `MAX_OUTPUT_TOKENS` | No | `1600` | Normal OpenRouter completion-token ceiling |
 | `MAX_RETRY_OUTPUT_TOKENS` | No | `4096` | One-time retry ceiling for an empty or length-limited result |
 | `CHANNEL_CONTEXT_MESSAGES` | No | `10` | Messages immediately before the invocation to read; `0` disables ambient context |

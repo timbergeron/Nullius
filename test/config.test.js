@@ -14,13 +14,28 @@ test("defaults recent channel context to ten messages", () => {
 });
 
 test("supports an optional QSS-M model override", () => {
-  assert.equal(loadConfig(requiredEnv).openRouter.packModels.qssm, "");
+  const defaults = loadConfig(requiredEnv).openRouter;
+  assert.equal(defaults.packModels.qssm, "");
+  assert.equal(defaults.packPremium.qssm.model, "");
+  assert.equal(defaults.packPremium.qssm.dailyLimit, 1);
   assert.equal(
     loadConfig({
       ...requiredEnv,
       QSSM_OPENROUTER_MODEL: "  openai/gpt-5.6-luna-pro  ",
     }).openRouter.packModels.qssm,
     "openai/gpt-5.6-luna-pro",
+  );
+
+  const premium = loadConfig({
+    ...requiredEnv,
+    QSSM_PREMIUM_OPENROUTER_MODEL: "  openai/gpt-5.6-sol  ",
+    QSSM_PREMIUM_DAILY_LIMIT: "2",
+  }).openRouter.packPremium.qssm;
+  assert.deepEqual(premium, { model: "openai/gpt-5.6-sol", dailyLimit: 2 });
+  assert.equal(
+    loadConfig({ ...requiredEnv, QSSM_PREMIUM_DAILY_LIMIT: "100" })
+      .openRouter.packPremium.qssm.dailyLimit,
+    10,
   );
 });
 

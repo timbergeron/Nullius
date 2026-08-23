@@ -16,6 +16,19 @@ test("persists guild settings while encrypting the OpenRouter key", async () => 
   await store.setOpenRouterKey("guild", "sk-or-secret");
   await store.incrementTrial("guild");
   await store.addUsageCost("guild", 0.25);
+  assert.deepEqual(
+    store.getDailyPremiumUsage("guild", "qssm", "2026-08-23T23:59:00Z"),
+    { day: "2026-08-23", used: 0 },
+  );
+  await store.incrementDailyPremiumUsage("guild", "qssm", "2026-08-23T23:59:00Z");
+  assert.deepEqual(
+    store.getDailyPremiumUsage("guild", "qssm", "2026-08-23T23:59:59Z"),
+    { day: "2026-08-23", used: 1 },
+  );
+  assert.deepEqual(
+    store.getDailyPremiumUsage("guild", "qssm", "2026-08-24T00:00:00Z"),
+    { day: "2026-08-24", used: 0 },
+  );
 
   assert.equal(store.getOpenRouterKey("guild"), "sk-or-secret");
   assert.equal(store.getGuild("guild").trialUsed, 1);
@@ -25,4 +38,8 @@ test("persists guild settings while encrypting the OpenRouter key", async () => 
   const reloaded = new FileStore(file, secret);
   await reloaded.init();
   assert.equal(reloaded.getOpenRouterKey("guild"), "sk-or-secret");
+  assert.deepEqual(
+    reloaded.getDailyPremiumUsage("guild", "qssm", "2026-08-23T23:59:59Z"),
+    { day: "2026-08-23", used: 1 },
+  );
 });

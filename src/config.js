@@ -50,6 +50,17 @@ export function loadConfig(env = process.env) {
       packModels: {
         qssm: env.QSSM_OPENROUTER_MODEL?.trim() || "",
       },
+      packPremium: {
+        qssm: {
+          model: env.QSSM_PREMIUM_OPENROUTER_MODEL?.trim() || "",
+          dailyLimit: nonNegativeInteger(
+            env.QSSM_PREMIUM_DAILY_LIMIT,
+            1,
+            "QSSM_PREMIUM_DAILY_LIMIT",
+            10,
+          ),
+        },
+      },
       trialLimit: Math.floor(positiveNumber(env.TRIAL_ANSWER_LIMIT, 20, "TRIAL_ANSWER_LIMIT")),
       monthlyLimitUsd: positiveNumber(
         env.DEFAULT_MONTHLY_LIMIT_USD,
