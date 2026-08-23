@@ -13,6 +13,17 @@ test("defaults recent channel context to ten messages", () => {
   assert.equal(loadConfig(requiredEnv).context.recentMessages, 10);
 });
 
+test("supports an optional QSS-M model override", () => {
+  assert.equal(loadConfig(requiredEnv).openRouter.packModels.qssm, "");
+  assert.equal(
+    loadConfig({
+      ...requiredEnv,
+      QSSM_OPENROUTER_MODEL: "  openai/gpt-5.6-luna-pro  ",
+    }).openRouter.packModels.qssm,
+    "openai/gpt-5.6-luna-pro",
+  );
+});
+
 test("allows recent channel context to be disabled and caps Discord fetches", () => {
   assert.equal(
     loadConfig({ ...requiredEnv, CHANNEL_CONTEXT_MESSAGES: "0" }).context.recentMessages,

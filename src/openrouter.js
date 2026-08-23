@@ -38,7 +38,7 @@ export class OpenRouterClient {
     this.logger = logger;
   }
 
-  async requestCompletion({ apiKey, messages, sessionId, userId, maxCompletionTokens }) {
+  async requestCompletion({ apiKey, messages, sessionId, userId, maxCompletionTokens, model }) {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -48,7 +48,7 @@ export class OpenRouterClient {
         "X-Title": "Nullius",
       },
       body: JSON.stringify({
-        model: this.model,
+        model,
         messages,
         max_completion_tokens: maxCompletionTokens,
         temperature: 0.35,
@@ -60,8 +60,9 @@ export class OpenRouterClient {
     return readResponse(response);
   }
 
-  async complete({ apiKey, messages, sessionId, userId }) {
+  async complete({ apiKey, messages, sessionId, userId, model = "" }) {
     const limits = [...new Set([this.maxOutputTokens, this.retryOutputTokens])];
+    const selectedModel = model.trim() || this.model;
     let totalCost = 0;
 
     for (let attempt = 0; attempt < limits.length; attempt += 1) {
@@ -71,6 +72,7 @@ export class OpenRouterClient {
         sessionId,
         userId,
         maxCompletionTokens: limits[attempt],
+        model: selectedModel,
       });
       totalCost += Number(body?.usage?.cost) || 0;
       const choice = body?.choices?.[0] || {};
@@ -89,13 +91,13 @@ export class OpenRouterClient {
         return {
           text: text.trim(),
           cost: totalCost,
-          model: body?.model || this.model,
+          model: body?.model || selectedModel,
         };
       }
 
       if (attempt + 1 < limits.length) {
         this.logger.warn?.("Retrying truncated OpenRouter completion", {
-          model: body?.model || this.model,
+          model: body?.model || selectedModel,
           finishReason: finishReason || "empty",
           contentCharacters: typeof text === "string" ? text.length : 0,
           completionTokens,

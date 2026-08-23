@@ -102,10 +102,11 @@ sudo systemctl reload nginx</code></pre>
           </ul>
           <p>The model applies to every server. To use DeepSeek V4 Flash:</p>
           <pre><code>OPENROUTER_MODEL=deepseek/deepseek-v4-flash
+QSSM_OPENROUTER_MODEL=openai/gpt-5.6-luna-pro
 MAX_OUTPUT_TOKENS=1600
 MAX_RETRY_OUTPUT_TOKENS=4096</code></pre>
           <p>Reasoning models count their hidden reasoning inside the completion-token budget. Nullius keeps answers concise, but allows a 1,600-token ceiling and retries once at 4,096 if OpenRouter reports that the first result was empty or stopped at the limit. Raising these values increases the maximum possible cost, not the requested answer length.</p>
-          <p>When an enabled knowledge module such as QSS-M supplies evidence, Nullius makes a second completion that adversarially checks the draft against that evidence before replying. Ordinary requests use one completion. Module-backed answers therefore normally cost about two model calls, and both reported costs count toward the server's monthly total.</p>
+          <p><code>QSSM_OPENROUTER_MODEL</code> optionally routes only QSS-M-backed answers through a different model; when unset, they use <code>OPENROUTER_MODEL</code>. When QSS-M supplies evidence, Nullius uses the selected QSS-M model for both the draft and a second completion that adversarially checks it before replying. Ordinary requests use the normal model once. Module-backed answers therefore normally cost about two model calls, and both reported costs count toward the server's monthly total.</p>
           <p>After changing any environment value, restart Nullius:</p>
           <pre><code>sudo systemctl restart nullius</code></pre>
         </section>

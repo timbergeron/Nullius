@@ -38,6 +38,10 @@ After the trial, the server owner clicks **Connect OpenRouter**. Nullius uses Op
 
 `OPENROUTER_MODEL` defaults to `openrouter/auto`. The system prompt asks for two or three sentences by default. Nullius normally allows up to 1,600 completion tokens because reasoning models count hidden reasoning against that budget. If OpenRouter returns an empty or length-limited result, Nullius retries once with a 4,096-token ceiling. These are ceilings, not requested answer lengths.
 
+`QSSM_OPENROUTER_MODEL` can route only QSS-M-backed answers through a different
+operator-selected model. It applies to both the draft and adversarial review when QSS-M
+actually supplies evidence, and falls back to `OPENROUTER_MODEL` when unset.
+
 Each connected server starts with a $5 monthly safety limit. Nullius tracks the cost returned with each OpenRouter response and stops before starting another request once the limit has been reached.
 
 Requests are serialized per Discord server. The first starts immediately and up to five more wait in arrival order. Nullius acknowledges each queued mention with its position, allows at most one waiting request per user, and expires queued work after 60 seconds rather than answering stale conversation later.
@@ -54,6 +58,7 @@ Requests are serialized per Discord server. The first starts immediately and up 
 | `DISCORD_BOT_TOKEN` | Yes | — | Shared Nullius bot token |
 | `OPENROUTER_API_KEY` | No | — | Operator-funded trial key |
 | `OPENROUTER_MODEL` | No | `openrouter/auto` | One server-controlled model/router |
+| `QSSM_OPENROUTER_MODEL` | No | — | Optional model override for both passes of QSS-M-backed answers |
 | `MAX_OUTPUT_TOKENS` | No | `1600` | Normal OpenRouter completion-token ceiling |
 | `MAX_RETRY_OUTPUT_TOKENS` | No | `4096` | One-time retry ceiling for an empty or length-limited result |
 | `CHANNEL_CONTEXT_MESSAGES` | No | `10` | Messages immediately before the invocation to read; `0` disables ambient context |

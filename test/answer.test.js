@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   buildAdversarialReviewMessages,
   completeAnswer,
+  knowledgeModelOverride,
 } from "../src/answer.js";
 import { OpenRouterError } from "../src/openrouter.js";
 
@@ -26,6 +27,20 @@ test("builds a skeptical review turn after the first-pass draft", () => {
   assert.match(messages[3].content, /citation mismatches/);
   assert.match(messages[3].content, /Return only the final revised answer/);
   assert.equal(request.messages.length, 2, "the original prompt must not be mutated");
+});
+
+test("selects a configured model only for a pack that supplied evidence", () => {
+  const models = {
+    qssm: "openai/gpt-5.6-luna-pro",
+    other: "provider/other-model",
+  };
+
+  assert.equal(knowledgeModelOverride(null, models), "");
+  assert.equal(knowledgeModelOverride({ packs: [{ id: "unknown" }] }, models), "");
+  assert.equal(
+    knowledgeModelOverride({ packs: [{ id: "qssm" }] }, models),
+    "openai/gpt-5.6-luna-pro",
+  );
 });
 
 test("leaves ordinary answers single-pass", async () => {
@@ -60,11 +75,14 @@ test("adversarially reviews module answers and totals both completion costs", as
   const answer = await completeAnswer({
     openRouter,
     ...request,
+    model: "openai/gpt-5.6-luna-pro",
     adversarialReview: true,
   });
 
   assert.equal(calls.length, 2);
   assert.deepEqual(calls[0].messages, request.messages);
+  assert.equal(calls[0].model, "openai/gpt-5.6-luna-pro");
+  assert.equal(calls[1].model, "openai/gpt-5.6-luna-pro");
   assert.equal(calls[1].messages.at(-2).content, "Plausible but wrong draft.");
   assert.match(calls[1].messages.at(-1).content, /Silently fix every issue/);
   assert.equal(answer.text, "Evidence-checked answer.");

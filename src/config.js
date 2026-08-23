@@ -47,6 +47,9 @@ export function loadConfig(env = process.env) {
       callbackUrl: `${publicUrl}/auth/openrouter/callback`,
       trialApiKey: env.OPENROUTER_API_KEY?.trim() || "",
       model: env.OPENROUTER_MODEL?.trim() || "openrouter/auto",
+      packModels: {
+        qssm: env.QSSM_OPENROUTER_MODEL?.trim() || "",
+      },
       trialLimit: Math.floor(positiveNumber(env.TRIAL_ANSWER_LIMIT, 20, "TRIAL_ANSWER_LIMIT")),
       monthlyLimitUsd: positiveNumber(
         env.DEFAULT_MONTHLY_LIMIT_USD,

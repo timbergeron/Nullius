@@ -14,16 +14,25 @@ export function buildAdversarialReviewMessages(messages, draft) {
   ];
 }
 
+export function knowledgeModelOverride(knowledge, packModels = {}) {
+  for (const pack of knowledge?.packs || []) {
+    const model = packModels[pack.id]?.trim();
+    if (model) return model;
+  }
+  return "";
+}
+
 export async function completeAnswer({
   openRouter,
   apiKey,
   messages,
   sessionId,
   userId,
+  model = "",
   adversarialReview = false,
   logger = console,
 }) {
-  const request = { apiKey, messages, sessionId, userId };
+  const request = { apiKey, messages, sessionId, userId, model };
   const draft = await openRouter.complete(request);
   if (!adversarialReview) return draft;
 

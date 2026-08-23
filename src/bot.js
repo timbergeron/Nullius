@@ -8,7 +8,7 @@ import {
   collectConversationContext,
   stripBotMention,
 } from "./context.js";
-import { completeAnswer } from "./answer.js";
+import { completeAnswer, knowledgeModelOverride } from "./answer.js";
 import { OpenRouterError } from "./openrouter.js";
 import { RequestQueue } from "./queue.js";
 
@@ -130,6 +130,7 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
         messages,
         sessionId: `${message.guildId}:${rootMessageId}`,
         userId: message.author.id,
+        model: knowledgeModelOverride(retrieved, config.openRouter.packModels),
         adversarialReview: Boolean(retrieved?.packs?.length),
         logger,
       });

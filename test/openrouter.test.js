@@ -56,6 +56,26 @@ test("uses max_completion_tokens for a successful completion", async (t) => {
   assert.equal(result.cost, 0.01);
 });
 
+test("allows a completion to override the configured model", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  let requestBody;
+  globalThis.fetch = async (_url, options) => {
+    requestBody = JSON.parse(options.body);
+    return response(completion({ content: "QSS-M answer." }));
+  };
+
+  await client().complete({
+    apiKey: "secret",
+    messages: [{ role: "user", content: "Question" }],
+    sessionId: "guild:message",
+    userId: "user",
+    model: "openai/gpt-5.6-luna-pro",
+  });
+
+  assert.equal(requestBody.model, "openai/gpt-5.6-luna-pro");
+});
+
 test("retries a length-limited answer with the larger budget", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });

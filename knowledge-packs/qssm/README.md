@@ -31,6 +31,16 @@ stays out of Git. Rebuild it whenever the checkout moves or the sheet changes.
 A source-only rebuild is detected by the running bot on its next lookup. Restart Nullius
 after changing the manifest itself.
 
+To use a dedicated OpenRouter model for both the initial QSS-M answer and its adversarial
+review, set the operator-controlled override and restart Nullius:
+
+```bash
+QSSM_OPENROUTER_MODEL=openai/gpt-5.6-luna-pro
+```
+
+When unset, QSS-M answers use the normal `OPENROUTER_MODEL`. The override is application
+configuration rather than pack policy so installing a pack cannot select a model or spend tier.
+
 ## Check the answers
 
 ```bash
