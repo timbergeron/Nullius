@@ -41,7 +41,10 @@ test("serves the setup page and reports health", networkTest, async () => {
   await withServer(async (baseUrl) => {
     const page = await fetch(`${baseUrl}/`);
     assert.equal(page.status, 200);
-    assert.match(await page.text(), /Add to Discord/);
+    const landing = await page.text();
+    assert.match(landing, /Add Nullius to Discord/);
+    assert.match(landing, /One mention\. Three layers of confidence\./);
+    assert.match(landing, /Daily frontier review/);
 
     const guide = await fetch(`${baseUrl}/setup.html`);
     assert.equal(guide.status, 200);

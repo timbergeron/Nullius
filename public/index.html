@@ -5,13 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f4f1e9" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#11110f" media="(prefers-color-scheme: dark)">
-    <meta name="description" content="Ask the conversation. Nullius answers only when mentioned in Discord.">
-    <title>Nullius — Ask the conversation</title>
+    <meta name="description" content="Source-grounded Discord answers that read the conversation, check QSS-M, and review their own work.">
+    <title>Nullius — Answers that check the source</title>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
     <header class="site-header">
       <a class="wordmark" href="./" aria-label="Nullius home">Nullius<span aria-hidden="true">.</span></a>
+      <nav class="site-nav" id="landing-nav" aria-label="Learn about Nullius" hidden>
+        <a href="#how-it-works">How it works</a>
+        <a href="knowledge-packs.html">QSS-M knowledge</a>
+      </nav>
     </header>
 
     <main>
@@ -19,37 +23,74 @@
         <span class="quiet">One moment…</span>
       </section>
 
-      <section class="screen" id="landing-screen" hidden>
-        <h1 class="visually-hidden">Ask the conversation with Nullius</h1>
+      <section class="screen landing-screen" id="landing-screen" hidden>
+        <div class="landing-hero">
+          <header class="landing-copy">
+            <p class="eyebrow">Quiet Discord intelligence</p>
+            <h1>Answers that read the room—and check the source.</h1>
+            <p class="landing-lede">Mention Nullius in Discord. It reads the nearby conversation, pulls current QSS-M evidence when relevant, and challenges its own draft before replying.</p>
+            <a class="primary-button landing-cta" href="auth/discord">Add Nullius to Discord</a>
+            <p class="fine-print" id="trial-copy">20 answers included <span aria-hidden="true">·</span> No card</p>
+          </header>
 
-        <div class="discord-demo" aria-label="An example conversation with Nullius">
-          <div class="demo-channel"><span aria-hidden="true">#</span> general</div>
-          <div class="demo-message demo-one">
-            <div class="avatar avatar-sage" aria-hidden="true">M</div>
-            <div>
-              <span class="demo-name">Maya</span>
-              <p>Octopuses have three hearts.</p>
+          <div class="discord-demo" aria-label="An example QSS-M question answered by Nullius">
+            <div class="demo-channel"><span aria-hidden="true">#</span> qssm-dev</div>
+            <div class="demo-message demo-one">
+              <div class="avatar avatar-sage" aria-hidden="true">M</div>
+              <div>
+                <span class="demo-name">Maya</span>
+                <p>I’m trying to trace the skybox renderer.</p>
+              </div>
             </div>
-          </div>
-          <div class="demo-message demo-two">
-            <div class="avatar avatar-blue" aria-hidden="true">J</div>
-            <div>
-              <span class="demo-name">Jon</span>
-              <div class="reply-quote">Maya · Octopuses have three hearts.</div>
-              <p><span class="mention">@Nullius</span> is that actually true?</p>
+            <div class="demo-message demo-two">
+              <div class="avatar avatar-blue" aria-hidden="true">J</div>
+              <div>
+                <span class="demo-name">Jon</span>
+                <div class="reply-quote">Maya · I’m trying to trace the skybox renderer.</div>
+                <p><span class="mention">@Nullius</span> where is that handled in QSS-M?</p>
+              </div>
             </div>
-          </div>
-          <div class="demo-message demo-three">
-            <div class="avatar avatar-dark" aria-hidden="true">N</div>
-            <div>
-              <span class="demo-name">Nullius</span><span class="app-badge">APP</span>
-              <p>Yes. Two pump blood through the gills; the third circulates it through the body.</p>
+            <div class="demo-message demo-three">
+              <div class="avatar avatar-dark" aria-hidden="true">N</div>
+              <div>
+                <span class="demo-name">Nullius</span><span class="app-badge">APP</span>
+                <p>Skybox rendering is handled in <code>Quake/gl_sky.c</code>. I checked the current QSS-M source and reviewed the answer before replying.</p>
+              </div>
             </div>
           </div>
         </div>
 
-        <a class="primary-button" href="auth/discord">Add to Discord</a>
-        <p class="fine-print" id="trial-copy">20 answers included <span aria-hidden="true">·</span> No card</p>
+        <section class="answer-path" id="how-it-works" aria-labelledby="answer-path-title">
+          <h2 id="answer-path-title">One mention. Three layers of confidence.</h2>
+          <div class="answer-path-grid">
+            <article>
+              <span class="step-number" aria-hidden="true">01</span>
+              <h3>Reads the moment</h3>
+              <p>Uses the recent channel conversation and explicit reply chain, only when mentioned.</p>
+            </article>
+            <article>
+              <span class="step-number" aria-hidden="true">02</span>
+              <h3>Checks QSS-M</h3>
+              <p>Retrieves current source, documentation, commands, defaults, and project history.</p>
+            </article>
+            <article>
+              <span class="step-number" aria-hidden="true">03</span>
+              <h3>Challenges the draft</h3>
+              <p>Runs an adversarial second pass to catch unsupported claims, omissions, and bad citations.</p>
+            </article>
+          </div>
+        </section>
+
+        <aside class="premium-callout">
+          <span class="premium-mark" aria-hidden="true">1×</span>
+          <div>
+            <p class="premium-label">Daily frontier review</p>
+            <h2>The first QSS-M answer gets the strongest final pass.</h2>
+            <p>Each server automatically gets one GPT-5.6 Sol review per day. Later QSS-M answers use Luna Pro. There is no command to learn.</p>
+          </div>
+        </aside>
+
+        <p class="landing-privacy"><strong>Mention-only.</strong> No conversation database. Bring a server-owned OpenRouter account when the included answers run out.</p>
         <p class="status-message" id="landing-status" role="status"></p>
       </section>
 

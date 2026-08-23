@@ -68,6 +68,9 @@ DISCORD_BOT_TOKEN=replace-with-bot-token
 
 OPENROUTER_API_KEY=
 OPENROUTER_MODEL=deepseek/deepseek-v4-flash
+QSSM_OPENROUTER_MODEL=openai/gpt-5.6-luna-pro
+QSSM_PREMIUM_OPENROUTER_MODEL=openai/gpt-5.6-sol
+QSSM_PREMIUM_DAILY_LIMIT=1
 MAX_OUTPUT_TOKENS=1600
 MAX_RETRY_OUTPUT_TOKENS=4096
 
@@ -76,7 +79,10 @@ MAX_CONTEXT_MESSAGES=12
 MAX_CONTEXT_CHARACTERS=16000
 
 REQUEST_QUEUE_MAX_PENDING=5
-REQUEST_QUEUE_MAX_AGE_SECONDS=60</code></pre>
+REQUEST_QUEUE_MAX_AGE_SECONDS=60
+
+KNOWLEDGE_ENABLED=true
+KNOWLEDGE_SOURCE_QSSM=/home/woods/codedev/QSS-M</code></pre>
           <p>Protect the file, install dependencies, and verify the project:</p>
           <pre><code>chmod 600 .env
 npm ci --omit=dev
@@ -100,7 +106,7 @@ sudo systemctl reload nginx</code></pre>
             <li><strong>Operator-funded trial:</strong> set <code>OPENROUTER_API_KEY</code> in the VPS <code>.env</code>. Each installed server receives the configured number of trial answers.</li>
             <li><strong>Server-owned account:</strong> leave the operator key blank and have the server owner choose <strong>Connect OpenRouter</strong> on the Nullius setup page.</li>
           </ul>
-          <p>The model applies to every server. To use DeepSeek V4 Flash:</p>
+          <p>The default model applies to every server. To use DeepSeek V4 Flash generally, Luna Pro for QSS-M, and one Sol final review per server each UTC day:</p>
           <pre><code>OPENROUTER_MODEL=deepseek/deepseek-v4-flash
 QSSM_OPENROUTER_MODEL=openai/gpt-5.6-luna-pro
 QSSM_PREMIUM_OPENROUTER_MODEL=openai/gpt-5.6-sol
@@ -108,7 +114,7 @@ QSSM_PREMIUM_DAILY_LIMIT=1
 MAX_OUTPUT_TOKENS=1600
 MAX_RETRY_OUTPUT_TOKENS=4096</code></pre>
           <p>Reasoning models count their hidden reasoning inside the completion-token budget. Nullius keeps answers concise, but allows a 1,600-token ceiling and retries once at 4,096 if OpenRouter reports that the first result was empty or stopped at the limit. Raising these values increases the maximum possible cost, not the requested answer length.</p>
-          <p><code>QSSM_OPENROUTER_MODEL</code> optionally routes only QSS-M-backed answers through a different model; when unset, they use <code>OPENROUTER_MODEL</code>. When QSS-M supplies evidence, Nullius uses the selected QSS-M model for the draft and a second completion that adversarially checks it before replying. <code>QSSM_PREMIUM_OPENROUTER_MODEL</code> upgrades that final review for the first QSS-M-backed answer per server each UTC day, with no special user syntax. Only a successful premium review consumes the quota; set <code>QSSM_PREMIUM_DAILY_LIMIT=0</code> to disable it. Ordinary requests use the normal model once. Module-backed answers therefore normally cost about two model calls, and both reported costs count toward the server's monthly total.</p>
+          <p><code>QSSM_OPENROUTER_MODEL</code> optionally routes only QSS-M-backed answers through a different model; when unset, they use <code>OPENROUTER_MODEL</code>. When QSS-M supplies evidence, Nullius uses the selected QSS-M model for the draft and, by default, a second completion that adversarially checks it before replying. <code>QSSM_PREMIUM_OPENROUTER_MODEL</code> upgrades that final review for the first QSS-M-backed answer per server each UTC day, with no special user syntax. Only a successful premium review consumes the quota; set <code>QSSM_PREMIUM_DAILY_LIMIT=0</code> to disable it. Ordinary requests use the normal model once. Module-backed answers therefore normally cost about two model calls, and both reported costs count toward the server's monthly total.</p>
           <p>After changing any environment value, restart Nullius:</p>
           <pre><code>sudo systemctl restart nullius</code></pre>
         </section>
@@ -118,7 +124,7 @@ MAX_RETRY_OUTPUT_TOKENS=4096</code></pre>
           <h2>Install Nullius in a server</h2>
           <ol>
             <li>Open <a href="https://timbergeron.com/nullius/">timbergeron.com/nullius</a>.</li>
-            <li>Choose <strong>Add to Discord</strong>, select the server, and approve the requested permissions.</li>
+            <li>Choose <strong>Add Nullius to Discord</strong>, select the server, and approve the requested permissions.</li>
             <li>Return to the setup page. Optionally set a server nickname.</li>
             <li>If no operator trial key is configured, choose <strong>Connect OpenRouter</strong> and authorize a server-owned key.</li>
           </ol>

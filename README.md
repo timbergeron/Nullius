@@ -1,6 +1,6 @@
 # Nullius
 
-Nullius is a quiet, mention-only AI bot for Discord. Mention it in a channel and it answers from the ten preceding messages, plus any explicit reply chain, in a few sentences.
+Nullius is a quiet, mention-only AI bot for Discord. Mention it in a channel and it answers from the ten preceding messages plus any explicit reply chain. When an enabled knowledge pack supplies evidence, Nullius checks the source and adversarially reviews its draft before replying.
 
 The entire V1 is one Node process:
 
@@ -39,8 +39,9 @@ After the trial, the server owner clicks **Connect OpenRouter**. Nullius uses Op
 `OPENROUTER_MODEL` defaults to `openrouter/auto`. The system prompt asks for two or three sentences by default. Nullius normally allows up to 1,600 completion tokens because reasoning models count hidden reasoning against that budget. If OpenRouter returns an empty or length-limited result, Nullius retries once with a 4,096-token ceiling. These are ceilings, not requested answer lengths.
 
 `QSSM_OPENROUTER_MODEL` can route only QSS-M-backed answers through a different
-operator-selected model. It applies to both the draft and adversarial review when QSS-M
-actually supplies evidence, and falls back to `OPENROUTER_MODEL` when unset.
+operator-selected model. It is the default for both the draft and adversarial review when
+QSS-M actually supplies evidence, and falls back to `OPENROUTER_MODEL` when unset. The
+daily premium model below replaces the final review while that server's quota is available.
 
 `QSSM_PREMIUM_OPENROUTER_MODEL` upgrades the final review for the first QSS-M-backed
 answer each UTC day per server. The daily limit defaults to one and can be changed or
@@ -68,7 +69,7 @@ ends only after the answer or error response has finished sending.
 | `DISCORD_BOT_TOKEN` | Yes | — | Shared Nullius bot token |
 | `OPENROUTER_API_KEY` | No | — | Operator-funded trial key |
 | `OPENROUTER_MODEL` | No | `openrouter/auto` | One server-controlled model/router |
-| `QSSM_OPENROUTER_MODEL` | No | — | Optional model override for both passes of QSS-M-backed answers |
+| `QSSM_OPENROUTER_MODEL` | No | — | Default model override for the QSS-M draft and review |
 | `QSSM_PREMIUM_OPENROUTER_MODEL` | No | — | Optional final-review model for the first daily QSS-M answer per server |
 | `QSSM_PREMIUM_DAILY_LIMIT` | No | `1` | Successful premium QSS-M reviews per server per UTC day; `0` disables |
 | `MAX_OUTPUT_TOKENS` | No | `1600` | Normal OpenRouter completion-token ceiling |
@@ -154,6 +155,11 @@ citations skeptically, and returns only a corrected final answer. Ordinary reque
 single-pass. A reviewed answer therefore normally makes two billable model completions;
 their reported costs are added together for the server's monthly usage total.
 
+For QSS-M, the first successful reviewed answer per server each UTC day can use a stronger
+final-review model automatically. The user asks normally—there is no premium command or
+mode to discover. Later QSS-M answers use the configured QSS-M model, and failed premium
+reviews do not consume the daily quota.
+
 Each server chooses which installed packs apply, on the same setup page as the nickname.
 A pack with `activation.mode` of `auto` only joins an answer when the question mentions
 one of its bounded domain keywords, an identifier-shaped symbol it knows, or a plain symbol
@@ -179,6 +185,11 @@ The checked-in deployment files target `https://timbergeron.com/nullius` on loca
 ```dotenv
 PUBLIC_URL=https://timbergeron.com/nullius
 PORT=3011
+QSSM_OPENROUTER_MODEL=openai/gpt-5.6-luna-pro
+QSSM_PREMIUM_OPENROUTER_MODEL=openai/gpt-5.6-sol
+QSSM_PREMIUM_DAILY_LIMIT=1
+KNOWLEDGE_ENABLED=true
+KNOWLEDGE_SOURCE_QSSM=/home/woods/codedev/QSS-M
 ```
 
 2. In the Discord Developer Portal, register this production OAuth callback:

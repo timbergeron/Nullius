@@ -1,6 +1,7 @@
 const loadingScreen = document.querySelector("#loading-screen");
 const landingScreen = document.querySelector("#landing-screen");
 const readyScreen = document.querySelector("#ready-screen");
+const landingNav = document.querySelector("#landing-nav");
 const errorMessages = {
   "discord-state": "That Discord connection expired. Try once more.",
   "discord-cancelled": "Discord wasn’t connected yet.",
@@ -16,6 +17,7 @@ function show(screen) {
   loadingScreen.hidden = true;
   landingScreen.hidden = screen !== "landing";
   readyScreen.hidden = screen !== "ready";
+  landingNav.hidden = screen !== "landing";
 }
 
 function setError(target) {
@@ -75,6 +77,12 @@ function renderKnowledgePacks(packs) {
     const detail = document.createElement("small");
     detail.textContent = pack.ready ? pack.description : "Index not built yet";
     text.append(name, document.createElement("br"), detail);
+    if (pack.id === "qssm" && pack.ready) {
+      const capabilities = document.createElement("span");
+      capabilities.className = "knowledge-capabilities";
+      capabilities.textContent = "Source-backed · Double-checked · Daily frontier review";
+      text.append(capabilities);
+    }
     row.append(input, text);
     list.append(row);
   }

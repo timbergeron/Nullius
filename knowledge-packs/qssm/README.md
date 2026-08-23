@@ -31,8 +31,9 @@ stays out of Git. Rebuild it whenever the checkout moves or the sheet changes.
 A source-only rebuild is detected by the running bot on its next lookup. Restart Nullius
 after changing the manifest itself.
 
-To use a dedicated OpenRouter model for both the initial QSS-M answer and its adversarial
-review, set the operator-controlled override and restart Nullius:
+To use a dedicated OpenRouter default for the initial QSS-M answer and its adversarial
+review, set the operator-controlled override. The premium model replaces that final review
+while the server's daily quota is available. Restart Nullius after changing these values:
 
 ```bash
 QSSM_OPENROUTER_MODEL=openai/gpt-5.6-luna-pro
@@ -45,6 +46,7 @@ configuration rather than pack policy so installing a pack cannot select a model
 When the premium model is set, the first QSS-M-backed answer per server each UTC day uses
 it for the final adversarial review; later answers use the regular QSS-M model. Only a
 successful premium review consumes the quota, and only the UTC date and count are stored.
+Set `QSSM_PREMIUM_DAILY_LIMIT=0` to disable the premium review.
 
 ## Check the answers
 
