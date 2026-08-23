@@ -11,6 +11,7 @@ import {
 import { completeAnswer, knowledgeModelOverride } from "./answer.js";
 import { OpenRouterError } from "./openrouter.js";
 import { RequestQueue } from "./queue.js";
+import { maintainTyping } from "./typing.js";
 
 function splitDiscordMessage(text, limit = 1900) {
   const parts = [];
@@ -74,6 +75,7 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
   });
 
   async function answerMessage(message, question) {
+    let stopTyping = () => {};
     try {
       const refreshedConfig = store.getGuild(message.guildId);
       const ownerKey = store.getOpenRouterKey(message.guildId);
@@ -99,7 +101,7 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
         }
       }
 
-      await message.channel.sendTyping().catch(() => {});
+      stopTyping = maintainTyping(message.channel);
       const context = await collectConversationContext(message, {
         recentMessages: config.context.recentMessages,
         maxReplyMessages: config.context.maxMessages,
@@ -151,6 +153,8 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
         ? `I couldn’t use this server’s OpenRouter connection. An admin can reconnect it at ${config.publicUrl}`
         : "I hit a temporary problem. Try again in a moment.";
       await replyWithoutPings(message, response).catch(() => {});
+    } finally {
+      stopTyping();
     }
   }
 

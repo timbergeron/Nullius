@@ -46,6 +46,10 @@ Each connected server starts with a $5 monthly safety limit. Nullius tracks the 
 
 Requests are serialized per Discord server. The first starts immediately and up to five more wait in arrival order. Nullius acknowledges each queued mention with its position, allows at most one waiting request per user, and expires queued work after 60 seconds rather than answering stale conversation later.
 
+While an active request is collecting context, retrieving knowledge, and waiting on model
+passes, Nullius refreshes Discord's typing indicator every eight seconds. The refresh loop
+ends only after the answer or error response has finished sending.
+
 ## Configuration
 
 | Variable | Required | Default | Purpose |
