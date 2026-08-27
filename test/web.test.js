@@ -45,6 +45,8 @@ test("serves the setup page and reports health", networkTest, async () => {
     assert.match(landing, /Add Nullius to Discord/);
     assert.match(landing, /One mention\. Three layers of confidence\./);
     assert.match(landing, /Daily frontier review/);
+    assert.match(landing, /Add to another Discord server/);
+    assert.match(landing, /id="add-another-server" href="auth\/discord"/);
 
     const guide = await fetch(`${baseUrl}/setup.html`);
     assert.equal(guide.status, 200);
