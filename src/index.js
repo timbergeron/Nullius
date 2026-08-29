@@ -14,6 +14,7 @@ async function main() {
     model: config.openRouter.model,
     maxOutputTokens: config.openRouter.maxOutputTokens,
     retryOutputTokens: config.openRouter.retryOutputTokens,
+    requestTimeoutMs: config.openRouter.requestTimeoutMs,
     publicUrl: config.publicUrl,
   });
   const knowledge = await new KnowledgeManager({

@@ -36,7 +36,7 @@ Set `OPENROUTER_API_KEY` to fund the optional free trial. A successful answer co
 
 After the trial, the server owner clicks **Connect OpenRouter**. Nullius uses OpenRouter's PKCE authorization flow to receive a dedicated key, validates it, and stores it encrypted with `APP_SECRET`. Users never paste a credential into Nullius.
 
-`OPENROUTER_MODEL` defaults to `openrouter/auto`. The system prompt asks for two or three sentences by default. Nullius normally allows up to 1,600 completion tokens because reasoning models count hidden reasoning against that budget. If OpenRouter returns an empty or length-limited result, Nullius retries once with a 4,096-token ceiling. These are ceilings, not requested answer lengths.
+`OPENROUTER_MODEL` defaults to `openrouter/auto`. The system prompt asks for two or three sentences by default. Nullius normally allows up to 4,096 completion tokens because reasoning models count hidden reasoning against that budget. If OpenRouter returns an empty or length-limited result, Nullius retries once with an 8,192-token ceiling. Each provider attempt has a configurable 90-second timeout. These are ceilings, not requested answer lengths.
 
 `QSSM_OPENROUTER_MODEL` can route only QSS-M-backed answers through a different
 operator-selected model. It is the default for both the draft and adversarial review when
@@ -51,7 +51,7 @@ UTC date and count, not message content.
 
 Each connected server starts with a $5 monthly safety limit. Nullius tracks the cost returned with each OpenRouter response and stops before starting another request once the limit has been reached.
 
-Requests are serialized per Discord server. The first starts immediately and up to five more wait in arrival order. Nullius acknowledges each queued mention with its position, allows at most one waiting request per user, and expires queued work after 60 seconds rather than answering stale conversation later.
+Requests are serialized per Discord server. The first starts immediately and up to five more wait in arrival order. Nullius acknowledges each queued mention with its position, allows at most one waiting request per user, and expires queued work after five minutes rather than answering stale conversation later. This lifetime is deliberately longer than a normal provider attempt and its one permitted completion retry.
 
 While an active request is collecting context, retrieving knowledge, and waiting on model
 passes, Nullius refreshes Discord's typing indicator every eight seconds. The refresh loop
@@ -72,13 +72,14 @@ ends only after the answer or error response has finished sending.
 | `QSSM_OPENROUTER_MODEL` | No | — | Default model override for the QSS-M draft and review |
 | `QSSM_PREMIUM_OPENROUTER_MODEL` | No | — | Optional final-review model for the first daily QSS-M answer per server |
 | `QSSM_PREMIUM_DAILY_LIMIT` | No | `1` | Successful premium QSS-M reviews per server per UTC day; `0` disables |
-| `MAX_OUTPUT_TOKENS` | No | `1600` | Normal OpenRouter completion-token ceiling |
-| `MAX_RETRY_OUTPUT_TOKENS` | No | `4096` | One-time retry ceiling for an empty or length-limited result |
+| `MAX_OUTPUT_TOKENS` | No | `4096` | Normal OpenRouter completion-token ceiling |
+| `MAX_RETRY_OUTPUT_TOKENS` | No | `8192` | One-time retry ceiling for an empty or length-limited result |
+| `OPENROUTER_TIMEOUT_SECONDS` | No | `90` | Timeout for each provider attempt; capped at 180 seconds |
 | `CHANNEL_CONTEXT_MESSAGES` | No | `10` | Messages immediately before the invocation to read; `0` disables ambient context |
 | `MAX_CONTEXT_MESSAGES` | No | `12` | Maximum depth of an explicit Discord reply chain |
 | `MAX_CONTEXT_CHARACTERS` | No | `16000` | Shared character ceiling for recent and reply-chain context |
 | `REQUEST_QUEUE_MAX_PENDING` | No | `5` | Maximum waiting requests per Discord server; capped at 25 |
-| `REQUEST_QUEUE_MAX_AGE_SECONDS` | No | `60` | Discard queued requests older than this; capped at 300 seconds |
+| `REQUEST_QUEUE_MAX_AGE_SECONDS` | No | `300` | Discard queued requests older than this; capped at 300 seconds |
 | `TRIAL_ANSWER_LIMIT` | No | `20` | Free successful answers per server |
 | `DEFAULT_MONTHLY_LIMIT_USD` | No | `5` | Safety cutoff for connected servers |
 | `DATA_FILE` | No | `./data/store.json` | Encrypted configuration file location |

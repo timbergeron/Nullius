@@ -1,7 +1,7 @@
 export class RequestQueue {
   constructor({
     maxPending = 5,
-    maxAgeMs = 60_000,
+    maxAgeMs = 300_000,
     handle,
     onExpired = async () => {},
     now = Date.now,
@@ -52,12 +52,20 @@ export class RequestQueue {
     return { status: "queued", position: existing.pending.length };
   }
 
-  async runItem(queuedItem) {
+  async runItem(scopeId, queuedItem) {
     try {
-      if (this.now() - queuedItem.enqueuedAt > this.maxAgeMs) {
-        await this.onExpired(queuedItem.item);
+      const waitMs = Math.max(0, this.now() - queuedItem.enqueuedAt);
+      const metadata = { waitMs };
+      if (waitMs > this.maxAgeMs) {
+        this.logger.warn?.("Queued request expired", {
+          scopeId,
+          messageId: queuedItem.item.id || queuedItem.item.message?.id || undefined,
+          waitMs,
+          maxAgeMs: this.maxAgeMs,
+        });
+        await this.onExpired(queuedItem.item, metadata);
       } else {
-        await this.handle(queuedItem.item);
+        await this.handle(queuedItem.item, metadata);
       }
     } catch (error) {
       this.logger.error?.("Queued request failed", error);
@@ -67,7 +75,7 @@ export class RequestQueue {
   async drain(scopeId, state) {
     try {
       while (state.current) {
-        await this.runItem(state.current);
+        await this.runItem(scopeId, state.current);
         state.current = state.pending.shift() || null;
       }
     } finally {

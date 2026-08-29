@@ -68,11 +68,20 @@ export function loadConfig(env = process.env) {
         "DEFAULT_MONTHLY_LIMIT_USD",
       ),
       maxOutputTokens: Math.floor(
-        positiveNumber(env.MAX_OUTPUT_TOKENS, 1600, "MAX_OUTPUT_TOKENS"),
+        positiveNumber(env.MAX_OUTPUT_TOKENS, 4096, "MAX_OUTPUT_TOKENS"),
       ),
       retryOutputTokens: Math.floor(
-        positiveNumber(env.MAX_RETRY_OUTPUT_TOKENS, 4096, "MAX_RETRY_OUTPUT_TOKENS"),
+        positiveNumber(env.MAX_RETRY_OUTPUT_TOKENS, 8192, "MAX_RETRY_OUTPUT_TOKENS"),
       ),
+      requestTimeoutMs:
+        Math.floor(Math.min(
+          positiveNumber(
+            env.OPENROUTER_TIMEOUT_SECONDS,
+            90,
+            "OPENROUTER_TIMEOUT_SECONDS",
+          ),
+          180,
+        ) * 1000),
     },
     context: {
       recentMessages: nonNegativeInteger(
@@ -100,7 +109,7 @@ export function loadConfig(env = process.env) {
       ),
       maxAgeMs:
         Math.min(
-          positiveNumber(env.REQUEST_QUEUE_MAX_AGE_SECONDS, 60, "REQUEST_QUEUE_MAX_AGE_SECONDS"),
+          positiveNumber(env.REQUEST_QUEUE_MAX_AGE_SECONDS, 300, "REQUEST_QUEUE_MAX_AGE_SECONDS"),
           300,
         ) * 1000,
     },

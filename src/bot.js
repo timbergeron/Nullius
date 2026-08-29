@@ -79,8 +79,18 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
     logger.info(`Nullius is online as ${readyClient.user.tag}`);
   });
 
-  async function answerMessage(message, question) {
+  async function answerMessage(message, question, queueMetadata = {}) {
+    const startedAt = Date.now();
+    const requestDetails = {
+      guildId: message.guildId,
+      channelId: message.channelId,
+      messageId: message.id,
+      queueWaitMs: Math.max(0, Number(queueMetadata.waitMs) || 0),
+    };
+    let outcome = "failed";
+    let answerModel = "";
     let stopTyping = () => {};
+    logger.info?.("Discord request started", requestDetails);
     try {
       const refreshedConfig = store.getGuild(message.guildId);
       const ownerKey = store.getOpenRouterKey(message.guildId);
@@ -88,6 +98,7 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
       const apiKey = ownerKey || config.openRouter.trialApiKey;
 
       if (!apiKey || (usingTrial && refreshedConfig.trialUsed >= config.openRouter.trialLimit)) {
+        outcome = "trial-unavailable";
         await replyWithoutPings(
           message,
           `The free answers are used up. A server admin can connect OpenRouter at ${config.publicUrl}`,
@@ -98,6 +109,7 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
       if (!usingTrial) {
         const usage = store.getMonthlyUsage(message.guildId);
         if (usage.cost >= refreshedConfig.monthlyLimitUsd) {
+          outcome = "monthly-limit";
           await replyWithoutPings(
             message,
             `This server reached its $${refreshedConfig.monthlyLimitUsd} monthly safety limit.`,
@@ -152,6 +164,7 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
         adversarialReview: Boolean(retrieved?.packs?.length),
         logger,
       });
+      answerModel = answer.model || "";
 
       if (premiumReviewModel && answer.reviewed) {
         await store.incrementDailyPremiumUsage(
@@ -164,8 +177,13 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
       if (usingTrial) await store.incrementTrial(message.guildId);
       else await store.addUsageCost(message.guildId, answer.cost);
       await replyWithoutPings(message, answer.text);
+      outcome = "answered";
     } catch (error) {
-      logger.error("Failed to answer Discord message", error);
+      logger.error("Failed to answer Discord message", {
+        ...requestDetails,
+        elapsedMs: Math.max(0, Date.now() - startedAt),
+        error,
+      });
       let ownerKey = "";
       try {
         ownerKey = store.getOpenRouterKey(message.guildId);
@@ -179,13 +197,19 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
       await replyWithoutPings(message, response).catch(() => {});
     } finally {
       stopTyping();
+      logger.info?.("Discord request finished", {
+        ...requestDetails,
+        elapsedMs: Math.max(0, Date.now() - startedAt),
+        outcome,
+        model: answerModel || undefined,
+      });
     }
   }
 
   const requestQueue = new RequestQueue({
     maxPending: config.queue.maxPending,
     maxAgeMs: config.queue.maxAgeMs,
-    handle: ({ message, question }) => answerMessage(message, question),
+    handle: ({ message, question }, metadata) => answerMessage(message, question, metadata),
     onExpired: ({ message }) => replyWithoutPings(
       message,
       "I couldn’t reach that queued request before it expired. Mention me again if you still need it.",

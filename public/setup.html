@@ -71,15 +71,16 @@ OPENROUTER_MODEL=deepseek/deepseek-v4-flash
 QSSM_OPENROUTER_MODEL=openai/gpt-5.6-luna-pro
 QSSM_PREMIUM_OPENROUTER_MODEL=openai/gpt-5.6-sol
 QSSM_PREMIUM_DAILY_LIMIT=1
-MAX_OUTPUT_TOKENS=1600
-MAX_RETRY_OUTPUT_TOKENS=4096
+MAX_OUTPUT_TOKENS=4096
+MAX_RETRY_OUTPUT_TOKENS=8192
+OPENROUTER_TIMEOUT_SECONDS=90
 
 CHANNEL_CONTEXT_MESSAGES=10
 MAX_CONTEXT_MESSAGES=12
 MAX_CONTEXT_CHARACTERS=16000
 
 REQUEST_QUEUE_MAX_PENDING=5
-REQUEST_QUEUE_MAX_AGE_SECONDS=60
+REQUEST_QUEUE_MAX_AGE_SECONDS=300
 
 KNOWLEDGE_ENABLED=true
 KNOWLEDGE_SOURCE_QSSM=/home/woods/codedev/QSS-M</code></pre>
@@ -111,9 +112,10 @@ sudo systemctl reload nginx</code></pre>
 QSSM_OPENROUTER_MODEL=openai/gpt-5.6-luna-pro
 QSSM_PREMIUM_OPENROUTER_MODEL=openai/gpt-5.6-sol
 QSSM_PREMIUM_DAILY_LIMIT=1
-MAX_OUTPUT_TOKENS=1600
-MAX_RETRY_OUTPUT_TOKENS=4096</code></pre>
-          <p>Reasoning models count their hidden reasoning inside the completion-token budget. Nullius keeps answers concise, but allows a 1,600-token ceiling and retries once at 4,096 if OpenRouter reports that the first result was empty or stopped at the limit. Raising these values increases the maximum possible cost, not the requested answer length.</p>
+MAX_OUTPUT_TOKENS=4096
+MAX_RETRY_OUTPUT_TOKENS=8192
+OPENROUTER_TIMEOUT_SECONDS=90</code></pre>
+          <p>Reasoning models count their hidden reasoning inside the completion-token budget. Nullius keeps answers concise, but allows a 4,096-token ceiling and retries once at 8,192 if OpenRouter reports that the first result was empty or stopped at the limit. Each provider attempt has a 90-second timeout. Raising these values increases the maximum possible cost and wait, not the requested answer length.</p>
           <p><code>QSSM_OPENROUTER_MODEL</code> optionally routes only QSS-M-backed answers through a different model; when unset, they use <code>OPENROUTER_MODEL</code>. When QSS-M supplies evidence, Nullius uses the selected QSS-M model for the draft and, by default, a second completion that adversarially checks it before replying. <code>QSSM_PREMIUM_OPENROUTER_MODEL</code> upgrades that final review for the first QSS-M-backed answer per server each UTC day, with no special user syntax. Only a successful premium review consumes the quota; set <code>QSSM_PREMIUM_DAILY_LIMIT=0</code> to disable it. Ordinary requests use the normal model once. Module-backed answers therefore normally cost about two model calls, and both reported costs count toward the server's monthly total.</p>
           <p>After changing any environment value, restart Nullius:</p>
           <pre><code>sudo systemctl restart nullius</code></pre>
@@ -140,7 +142,7 @@ MAX_RETRY_OUTPUT_TOKENS=4096</code></pre>
           <p>To test conversation context, reply to an existing message and add:</p>
           <pre><code>@Nullius explain this in simple terms</code></pre>
           <p>A reply is optional: every invocation includes up to the ten immediately preceding messages from that channel or thread. Explicit reply chains are merged in when they reach further back. The combined text is limited by <code>MAX_CONTEXT_CHARACTERS</code>, used only for that request, and never stored. Set <code>CHANNEL_CONTEXT_MESSAGES=0</code> to restore reply-chain-only behavior.</p>
-          <p>If several people mention Nullius together, it processes the requests in arrival order. Up to five can wait, with one waiting request per user. Queued requests expire after 60 seconds so an old prompt does not interrupt a later conversation. Configure those bounds with <code>REQUEST_QUEUE_MAX_PENDING</code> and <code>REQUEST_QUEUE_MAX_AGE_SECONDS</code>.</p>
+          <p>If several people mention Nullius together, it processes the requests in arrival order. Up to five can wait, with one waiting request per user. Queued requests expire after five minutes, long enough for a normal provider attempt and its one permitted completion retry without keeping genuinely stale prompts indefinitely. Configure those bounds with <code>REQUEST_QUEUE_MAX_PENDING</code> and <code>REQUEST_QUEUE_MAX_AGE_SECONDS</code>.</p>
           <p>Once a request starts, Nullius refreshes its typing status every eight seconds while it collects context, retrieves knowledge, and completes every model pass. The indicator stops after the answer or error response finishes sending.</p>
           <aside class="warning"><strong>Select the bot, not its role.</strong> Discord creates an automatic managed role named Nullius. In mention autocomplete, choose the entry marked <strong>APP</strong> or <strong>BOT</strong> with the bot avatar. A role mention looks similar but does not summon the current V1.</aside>
         </section>
@@ -156,7 +158,7 @@ MAX_RETRY_OUTPUT_TOKENS=4096</code></pre>
             <dt>Nullius says an admin must finish setup</dt>
             <dd>Install it through the public setup page so the Discord server is recorded, then connect OpenRouter or configure the operator trial key.</dd>
             <dt>Nullius cannot generate an answer</dt>
-            <dd>Confirm OpenRouter is connected, the account has credit, and <code>OPENROUTER_MODEL</code> contains a valid OpenRouter model ID. If logs say the model exhausted its completion tokens, keep <code>MAX_OUTPUT_TOKENS=1600</code> and <code>MAX_RETRY_OUTPUT_TOKENS=4096</code> or raise them cautiously.</dd>
+            <dd>Confirm OpenRouter is connected, the account has credit, and <code>OPENROUTER_MODEL</code> contains a valid OpenRouter model ID. The logs identify each Discord request, its queue wait, every provider attempt’s duration, and visible versus reasoning-token use without recording prompts or API keys. If a model still exhausts the defaults, raise <code>MAX_OUTPUT_TOKENS=4096</code> and <code>MAX_RETRY_OUTPUT_TOKENS=8192</code> cautiously or choose a less reasoning-heavy model.</dd>
           </dl>
           <p>Useful health and log commands:</p>
           <pre><code>curl https://timbergeron.com/nullius/healthz

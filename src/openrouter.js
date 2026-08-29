@@ -27,15 +27,25 @@ async function readResponse(response) {
 }
 
 export class OpenRouterClient {
-  constructor({ model, maxOutputTokens, retryOutputTokens, publicUrl, logger = console }) {
+  constructor({
+    model,
+    maxOutputTokens,
+    retryOutputTokens,
+    requestTimeoutMs = 90_000,
+    publicUrl,
+    logger = console,
+    now = Date.now,
+  }) {
     this.model = model;
     this.maxOutputTokens = maxOutputTokens;
     this.retryOutputTokens = Math.max(
       maxOutputTokens,
       retryOutputTokens || maxOutputTokens * 2,
     );
+    this.requestTimeoutMs = requestTimeoutMs;
     this.publicUrl = publicUrl;
     this.logger = logger;
+    this.now = now;
   }
 
   async requestCompletion({ apiKey, messages, sessionId, userId, maxCompletionTokens, model }) {
@@ -55,7 +65,7 @@ export class OpenRouterClient {
         session_id: sessionId,
         user: createHash("sha256").update(`discord:${userId}`).digest("hex").slice(0, 32),
       }),
-      signal: AbortSignal.timeout(60_000),
+      signal: AbortSignal.timeout(this.requestTimeoutMs),
     });
     return readResponse(response);
   }
@@ -66,14 +76,30 @@ export class OpenRouterClient {
     let totalCost = 0;
 
     for (let attempt = 0; attempt < limits.length; attempt += 1) {
-      const body = await this.requestCompletion({
-        apiKey,
-        messages,
-        sessionId,
-        userId,
-        maxCompletionTokens: limits[attempt],
-        model: selectedModel,
-      });
+      const attemptNumber = attempt + 1;
+      const maxCompletionTokens = limits[attempt];
+      const startedAt = this.now();
+      let body;
+      try {
+        body = await this.requestCompletion({
+          apiKey,
+          messages,
+          sessionId,
+          userId,
+          maxCompletionTokens,
+          model: selectedModel,
+        });
+      } catch (error) {
+        this.logger.error?.("OpenRouter completion attempt failed", {
+          model: selectedModel,
+          attempt: attemptNumber,
+          maxCompletionTokens,
+          elapsedMs: Math.max(0, this.now() - startedAt),
+          error: error?.message || String(error),
+          status: Number(error?.status) || undefined,
+        });
+        throw error;
+      }
       totalCost += Number(body?.usage?.cost) || 0;
       const choice = body?.choices?.[0] || {};
       const content = choice.message?.content;
@@ -86,6 +112,18 @@ export class OpenRouterClient {
         ? content.map((part) => part?.text || "").join("")
         : content;
       const complete = Boolean(text?.trim()) && finishReason !== "length";
+      const attemptDetails = {
+        model: body?.model || selectedModel,
+        attempt: attemptNumber,
+        maxCompletionTokens,
+        elapsedMs: Math.max(0, this.now() - startedAt),
+        finishReason: finishReason || "empty",
+        contentCharacters: typeof text === "string" ? text.length : 0,
+        completionTokens,
+        reasoningTokens,
+      };
+
+      this.logger.info?.("OpenRouter completion attempt finished", attemptDetails);
 
       if (complete) {
         return {
@@ -97,18 +135,14 @@ export class OpenRouterClient {
 
       if (attempt + 1 < limits.length) {
         this.logger.warn?.("Retrying truncated OpenRouter completion", {
-          model: body?.model || selectedModel,
-          finishReason: finishReason || "empty",
-          contentCharacters: typeof text === "string" ? text.length : 0,
-          completionTokens,
-          reasoningTokens,
+          ...attemptDetails,
           nextMaxCompletionTokens: limits[attempt + 1],
         });
         continue;
       }
 
       const reason = finishReason === "length"
-        ? `The model exhausted ${limits[attempt]} completion tokens before finishing`
+        ? `The model exhausted ${maxCompletionTokens} completion tokens before finishing`
         : "The model returned an empty answer";
       throw new OpenRouterError(reason, 502, totalCost);
     }

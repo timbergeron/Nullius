@@ -13,6 +13,19 @@ test("defaults recent channel context to ten messages", () => {
   assert.equal(loadConfig(requiredEnv).context.recentMessages, 10);
 });
 
+test("uses reasoning-safe OpenRouter budgets and a bounded timeout", () => {
+  const defaults = loadConfig(requiredEnv).openRouter;
+  assert.equal(defaults.maxOutputTokens, 4096);
+  assert.equal(defaults.retryOutputTokens, 8192);
+  assert.equal(defaults.requestTimeoutMs, 90_000);
+
+  assert.equal(
+    loadConfig({ ...requiredEnv, OPENROUTER_TIMEOUT_SECONDS: "1000" })
+      .openRouter.requestTimeoutMs,
+    180_000,
+  );
+});
+
 test("supports an optional QSS-M model override", () => {
   const defaults = loadConfig(requiredEnv).openRouter;
   assert.equal(defaults.packModels.qssm, "");
@@ -57,7 +70,7 @@ test("allows recent channel context to be disabled and caps Discord fetches", ()
 test("applies bounded request queue defaults and overrides", () => {
   const defaults = loadConfig(requiredEnv).queue;
   assert.equal(defaults.maxPending, 5);
-  assert.equal(defaults.maxAgeMs, 60_000);
+  assert.equal(defaults.maxAgeMs, 300_000);
 
   const capped = loadConfig({
     ...requiredEnv,

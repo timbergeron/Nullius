@@ -65,6 +65,7 @@ test("expires stale requests without blocking later work", async () => {
   const gate = deferred();
   const handled = [];
   const expired = [];
+  const warnings = [];
   const queue = new RequestQueue({
     maxAgeMs: 60_000,
     now: () => now,
@@ -72,8 +73,11 @@ test("expires stale requests without blocking later work", async () => {
       handled.push(item.id);
       if (item.id === "active") await gate.promise;
     },
-    async onExpired(item) {
-      expired.push(item.id);
+    async onExpired(item, metadata) {
+      expired.push({ id: item.id, ...metadata });
+    },
+    logger: {
+      warn(message, details) { warnings.push({ message, details }); },
     },
   });
 
@@ -85,7 +89,12 @@ test("expires stale requests without blocking later work", async () => {
   await queue.whenIdle("guild");
 
   assert.deepEqual(handled, ["active", "fresh"]);
-  assert.deepEqual(expired, ["stale"]);
+  assert.deepEqual(expired, [{ id: "stale", waitMs: 60_001 }]);
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0].message, "Queued request expired");
+  assert.equal(warnings[0].details.scopeId, "guild");
+  assert.equal(warnings[0].details.messageId, "stale");
+  assert.equal(warnings[0].details.waitMs, 60_001);
 });
 
 test("continues draining after a handler error", async () => {
