@@ -3,9 +3,12 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#11110f">
+    <meta name="theme-color" content="#f4f1e9" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#11110f" media="(prefers-color-scheme: dark)">
+    <meta name="color-scheme" content="light dark">
     <meta name="description" content="Configure, deploy, and test the Nullius Discord bot.">
     <title>Nullius setup guide</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="setup.css">
   </head>
@@ -67,7 +70,7 @@ DISCORD_CLIENT_SECRET=replace-with-client-secret
 DISCORD_BOT_TOKEN=replace-with-bot-token
 
 OPENROUTER_API_KEY=
-OPENROUTER_MODEL=deepseek/deepseek-v4-flash
+OPENROUTER_MODEL=z-ai/glm-5.3-flash
 QSSM_OPENROUTER_MODEL=openai/gpt-5.6-luna-pro
 QSSM_PREMIUM_OPENROUTER_MODEL=openai/gpt-5.6-sol
 QSSM_PREMIUM_DAILY_LIMIT=1
@@ -107,8 +110,8 @@ sudo systemctl reload nginx</code></pre>
             <li><strong>Operator-funded trial:</strong> set <code>OPENROUTER_API_KEY</code> in the VPS <code>.env</code>. Each installed server receives the configured number of trial answers.</li>
             <li><strong>Server-owned account:</strong> leave the operator key blank and have the server owner choose <strong>Connect OpenRouter</strong> on the Nullius setup page.</li>
           </ul>
-          <p>The default model applies to every server. To use DeepSeek V4 Flash generally, Luna Pro for QSS-M, and one Sol final review per server each UTC day:</p>
-          <pre><code>OPENROUTER_MODEL=deepseek/deepseek-v4-flash
+          <p>The default model applies to every server. To use GLM 5.3 Flash generally, Luna Pro for QSS-M, and one Sol final review per server each UTC day:</p>
+          <pre><code>OPENROUTER_MODEL=z-ai/glm-5.3-flash
 QSSM_OPENROUTER_MODEL=openai/gpt-5.6-luna-pro
 QSSM_PREMIUM_OPENROUTER_MODEL=openai/gpt-5.6-sol
 QSSM_PREMIUM_DAILY_LIMIT=1

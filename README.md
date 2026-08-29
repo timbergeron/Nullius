@@ -186,6 +186,7 @@ The checked-in deployment files target `https://timbergeron.com/nullius` on loca
 ```dotenv
 PUBLIC_URL=https://timbergeron.com/nullius
 PORT=3011
+OPENROUTER_MODEL=z-ai/glm-5.3-flash
 QSSM_OPENROUTER_MODEL=openai/gpt-5.6-luna-pro
 QSSM_PREMIUM_OPENROUTER_MODEL=openai/gpt-5.6-sol
 QSSM_PREMIUM_DAILY_LIMIT=1
@@ -227,7 +228,7 @@ The `^~` location is intentional: it keeps the site's existing global JavaScript
 ## What V1 intentionally omits
 
 - slash commands and model selection;
-- ambient channel-history collection;
+- background collection or storage of channel history;
 - attachments, image understanding, tools, and web search;
 - autonomous messages and long-term memory;
 - a general-purpose dashboard.

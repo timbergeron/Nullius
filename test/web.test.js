@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { sealSession } from "../src/security.js";
 import { createWebApp } from "../src/web.js";
 
-const networkTest = { skip: process.env.NULLIUS_NETWORK_TESTS !== "1" };
-
-function fixture() {
+function fixture(overrides = {}) {
   const config = {
     appSecret: "this-is-a-test-secret-with-more-than-32-characters",
     publicUrl: "https://example.com/nullius",
@@ -20,14 +19,14 @@ function fixture() {
       monthlyLimitUsd: 5,
     },
   };
-  const client = { isReady: () => true };
-  const store = { getGuild: () => null };
-  const openRouter = {};
+  const client = overrides.client || { isReady: () => true };
+  const store = overrides.store || { getGuild: () => null };
+  const openRouter = overrides.openRouter || {};
   return createWebApp({ config, client, store, openRouter, logger: { error() {} } });
 }
 
-async function withServer(run) {
-  const server = fixture().listen(0, "127.0.0.1");
+async function withServer(run, app = fixture()) {
+  const server = app.listen(0, "127.0.0.1");
   await new Promise((resolve) => server.once("listening", resolve));
   const { port } = server.address();
   try {
@@ -37,10 +36,12 @@ async function withServer(run) {
   }
 }
 
-test("serves the setup page and reports health", networkTest, async () => {
+test("serves the setup page and reports health", async () => {
   await withServer(async (baseUrl) => {
     const page = await fetch(`${baseUrl}/`);
     assert.equal(page.status, 200);
+    assert.equal(page.headers.get("cache-control"), "public, max-age=0, must-revalidate");
+    assert.match(page.headers.get("permissions-policy"), /camera=\(\)/);
     const landing = await page.text();
     assert.match(landing, /Add Nullius to Discord/);
     assert.match(landing, /One mention\. Three layers of confidence\./);
@@ -64,7 +65,15 @@ test("serves the setup page and reports health", networkTest, async () => {
   });
 });
 
-test("builds a Discord install URL with the subpath callback", networkTest, async () => {
+test("reports a disconnected Discord client as unhealthy", async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/healthz`);
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { ok: false, discord: false });
+  }, fixture({ client: { isReady: () => false } }));
+});
+
+test("builds a Discord install URL with scoped OAuth cookies", async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(`${baseUrl}/auth/discord`, { redirect: "manual" });
     assert.equal(response.status, 302);
@@ -76,5 +85,43 @@ test("builds a Discord install URL with the subpath callback", networkTest, asyn
     );
     assert.equal(location.searchParams.get("scope"), "bot identify");
     assert.match(response.headers.get("set-cookie"), /Secure/);
+    assert.match(response.headers.get("set-cookie"), /Path=\/nullius/);
   });
+});
+
+test("rejects an OpenRouter callback without an exact OAuth state", async () => {
+  let exchangeCalled = false;
+  const secret = "this-is-a-test-secret-with-more-than-32-characters";
+  const session = sealSession({
+    userId: "owner",
+    guildId: "guild",
+    expiresAt: Date.now() + 60_000,
+  }, secret);
+  const app = fixture({
+    store: { getGuild: () => ({ ownerId: "owner" }) },
+    openRouter: {
+      async exchangeOAuthCode() {
+        exchangeCalled = true;
+        return "unexpected";
+      },
+    },
+  });
+
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/auth/openrouter/callback?code=test`, {
+      redirect: "manual",
+      headers: {
+        Cookie: [
+          `nullius_session=${session}`,
+          "nullius_openrouter_state=expected",
+          "nullius_openrouter_verifier=verifier",
+        ].join("; "),
+      },
+    });
+    assert.equal(response.status, 302);
+    assert.equal(response.headers.get("location"), "/nullius/?error=openrouter-state");
+    assert.match(response.headers.get("set-cookie"), /nullius_openrouter_state=/);
+    assert.match(response.headers.get("set-cookie"), /Max-Age=0/);
+    assert.equal(exchangeCalled, false);
+  }, app);
 });

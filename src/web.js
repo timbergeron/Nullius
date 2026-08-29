@@ -19,10 +19,11 @@ const OPENROUTER_STATE_COOKIE = "nullius_openrouter_state";
 const OPENROUTER_VERIFIER_COOKIE = "nullius_openrouter_verifier";
 
 function cookieOptions(config, maxAge) {
+  const basePath = new URL(config.publicUrl).pathname.replace(/\/$/, "");
   return {
     httpOnly: true,
     maxAge,
-    path: "/",
+    path: basePath || "/",
     sameSite: "Lax",
     secure: config.publicUrl.startsWith("https://"),
   };
@@ -42,7 +43,10 @@ function publicPath(config, pathname = "") {
   return `${basePath}/${pathname}`.replace(/\/+/g, "/");
 }
 
-function redirectWithError(res, config, code) {
+function redirectWithError(res, config, code, cookieNames = []) {
+  for (const name of cookieNames) {
+    res.append("Set-Cookie", clearCookie(name, config));
+  }
   res.redirect(`${publicPath(config)}?error=${encodeURIComponent(code)}`);
 }
 
@@ -104,6 +108,7 @@ export function createWebApp({ config, store, client, openRouter, knowledge = nu
   app.use((req, res, next) => {
     res.set({
       "Content-Security-Policy": "default-src 'self'; connect-src 'self'; img-src 'self' data: https://cdn.discordapp.com; style-src 'self'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'",
+      "Permissions-Policy": "camera=(), geolocation=(), microphone=()",
       "Referrer-Policy": "no-referrer",
       "X-Content-Type-Options": "nosniff",
       "X-Frame-Options": "DENY",
@@ -115,7 +120,8 @@ export function createWebApp({ config, store, client, openRouter, knowledge = nu
   });
 
   app.get("/healthz", (_req, res) => {
-    res.json({ ok: true, discord: client.isReady() });
+    const discord = client.isReady();
+    res.status(discord ? 200 : 503).json({ ok: discord, discord });
   });
 
   app.get("/auth/discord", (_req, res) => {
@@ -151,10 +157,10 @@ export function createWebApp({ config, store, client, openRouter, knowledge = nu
     try {
       const cookies = parseCookies(req.headers.cookie);
       if (!req.query.state || req.query.state !== cookies[DISCORD_STATE_COOKIE]) {
-        return redirectWithError(res, config, "discord-state");
+        return redirectWithError(res, config, "discord-state", [DISCORD_STATE_COOKIE]);
       }
       if (req.query.error || !req.query.code) {
-        return redirectWithError(res, config, "discord-cancelled");
+        return redirectWithError(res, config, "discord-cancelled", [DISCORD_STATE_COOKIE]);
       }
 
       const token = await discordApi("/oauth2/token", {
@@ -193,7 +199,7 @@ export function createWebApp({ config, store, client, openRouter, knowledge = nu
       res.redirect(`${publicPath(config)}?installed=1`);
     } catch (error) {
       logger.error("Discord OAuth failed", error);
-      redirectWithError(res, config, "discord");
+      redirectWithError(res, config, "discord", [DISCORD_STATE_COOKIE]);
     }
   });
 
@@ -227,16 +233,22 @@ export function createWebApp({ config, store, client, openRouter, knowledge = nu
     try {
       const session = sessionFromRequest(req, config);
       const cookies = parseCookies(req.headers.cookie);
-      if (!session) return res.redirect(publicPath(config, "auth/discord"));
-      if (req.query.state && req.query.state !== cookies[OPENROUTER_STATE_COOKIE]) {
-        return redirectWithError(res, config, "openrouter-state");
+      const transientCookies = [OPENROUTER_STATE_COOKIE, OPENROUTER_VERIFIER_COOKIE];
+      if (!session) {
+        for (const name of transientCookies) {
+          res.append("Set-Cookie", clearCookie(name, config));
+        }
+        return res.redirect(publicPath(config, "auth/discord"));
+      }
+      if (!req.query.state || req.query.state !== cookies[OPENROUTER_STATE_COOKIE]) {
+        return redirectWithError(res, config, "openrouter-state", transientCookies);
       }
       if (req.query.error || !req.query.code || !cookies[OPENROUTER_VERIFIER_COOKIE]) {
-        return redirectWithError(res, config, "openrouter-cancelled");
+        return redirectWithError(res, config, "openrouter-cancelled", transientCookies);
       }
       const guildConfig = store.getGuild(session.guildId);
       if (!guildConfig || guildConfig.ownerId !== session.userId) {
-        return redirectWithError(res, config, "session");
+        return redirectWithError(res, config, "session", transientCookies);
       }
 
       const key = await openRouter.exchangeOAuthCode({
@@ -250,7 +262,10 @@ export function createWebApp({ config, store, client, openRouter, knowledge = nu
       res.redirect(`${publicPath(config)}?openrouter=connected`);
     } catch (error) {
       logger.error("OpenRouter OAuth failed", error);
-      redirectWithError(res, config, "openrouter");
+      redirectWithError(res, config, "openrouter", [
+        OPENROUTER_STATE_COOKIE,
+        OPENROUTER_VERIFIER_COOKIE,
+      ]);
     }
   });
 
@@ -340,6 +355,10 @@ export function createWebApp({ config, store, client, openRouter, knowledge = nu
     }
   });
 
-  app.use(express.static(publicDirectory, { extensions: ["html"], maxAge: "1h" }));
+  app.use(express.static(publicDirectory, {
+    extensions: ["html"],
+    maxAge: 0,
+    setHeaders: (res) => res.set("Cache-Control", "public, max-age=0, must-revalidate"),
+  }));
   return app;
 }
