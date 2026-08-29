@@ -1,7 +1,8 @@
 import express from "express";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { PermissionsBitField } from "discord.js";
+import { ChannelType, PermissionsBitField } from "discord.js";
 import {
   createPkcePair,
   parseCookies,
@@ -13,6 +14,7 @@ import {
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const publicDirectory = path.resolve(directory, "../public");
+const notFoundTemplate = readFileSync(path.resolve(directory, "not-found.html"), "utf8");
 const SESSION_COOKIE = "nullius_session";
 const DISCORD_STATE_COOKIE = "nullius_discord_state";
 const OPENROUTER_STATE_COOKIE = "nullius_openrouter_state";
@@ -61,20 +63,24 @@ async function discordApi(pathname, options = {}) {
 }
 
 async function fetchGuild(client, guildId) {
-  const guild = await client.guilds.fetch(guildId);
-  await guild.channels.fetch().catch(() => {});
+  const guild = client.guilds.cache?.get(guildId) || await client.guilds.fetch(guildId);
+  if (!guild.channels.cache?.size) await guild.channels.fetch().catch(() => {});
   return guild;
 }
 
-function bestChannel(guild) {
+export function bestChannel(guild) {
   const me = guild.members.me;
   if (!me) return null;
   const candidates = [...guild.channels.cache.values()]
-    .filter((channel) => channel.isTextBased() && !channel.isThread())
+    .filter((channel) => [
+      ChannelType.GuildText,
+      ChannelType.GuildAnnouncement,
+    ].includes(channel.type))
     .filter((channel) => {
       const permissions = channel.permissionsFor(me);
       return permissions?.has(PermissionsBitField.Flags.ViewChannel) &&
-        permissions.has(PermissionsBitField.Flags.SendMessages);
+        permissions.has(PermissionsBitField.Flags.SendMessages) &&
+        permissions.has(PermissionsBitField.Flags.ReadMessageHistory);
     })
     .sort((a, b) => a.rawPosition - b.rawPosition);
   return candidates.find((channel) => channel.id === guild.systemChannelId) || candidates[0] || null;
@@ -90,13 +96,18 @@ function publicKnowledge(knowledge, guildConfig) {
 
 function publicGuildConfig(guildConfig, config) {
   const usage = guildConfig.usage?.month === new Date().toISOString().slice(0, 7)
-    ? guildConfig.usage.cost
+    ? Math.max(0, Number(guildConfig.usage.cost) || 0)
     : 0;
+  const trialUsed = Math.max(0, Number(guildConfig.trialUsed) || 0);
+  const monthlyLimitUsd = Math.max(
+    0,
+    Number(guildConfig.monthlyLimitUsd) || config.openRouter.monthlyLimitUsd,
+  );
   return {
     openRouterConnected: Boolean(guildConfig.openRouterKey),
-    trialRemaining: Math.max(0, config.openRouter.trialLimit - guildConfig.trialUsed),
+    trialRemaining: Math.max(0, config.openRouter.trialLimit - trialUsed),
     trialEnabled: Boolean(config.openRouter.trialApiKey),
-    monthlyLimitUsd: guildConfig.monthlyLimitUsd,
+    monthlyLimitUsd,
     monthlyUsageUsd: usage,
   };
 }
@@ -107,13 +118,20 @@ export function createWebApp({ config, store, client, openRouter, knowledge = nu
   app.use(express.json({ limit: "8kb" }));
   app.use((req, res, next) => {
     res.set({
-      "Content-Security-Policy": "default-src 'self'; connect-src 'self'; img-src 'self' data: https://cdn.discordapp.com; style-src 'self'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'",
+      "Content-Security-Policy": "default-src 'self'; connect-src 'self'; img-src 'self' data: https://cdn.discordapp.com; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+      "Cross-Origin-Opener-Policy": "same-origin",
       "Permissions-Policy": "camera=(), geolocation=(), microphone=()",
       "Referrer-Policy": "no-referrer",
       "X-Content-Type-Options": "nosniff",
       "X-Frame-Options": "DENY",
     });
-    if (req.path.startsWith("/api/") || req.path.startsWith("/auth/")) {
+    if (
+      req.path === "/healthz" ||
+      req.path === "/api" ||
+      req.path.startsWith("/api/") ||
+      req.path === "/auth" ||
+      req.path.startsWith("/auth/")
+    ) {
       res.set("Cache-Control", "no-store");
     }
     next();
@@ -360,5 +378,11 @@ export function createWebApp({ config, store, client, openRouter, knowledge = nu
     maxAge: 0,
     setHeaders: (res) => res.set("Cache-Control", "public, max-age=0, must-revalidate"),
   }));
+  app.use("/api", (_req, res) => res.status(404).json({ error: "not-found" }));
+  const notFoundPage = notFoundTemplate.replaceAll("{{NULLIUS_BASE}}", publicPath(config));
+  app.use((_req, res) => {
+    res.set("Cache-Control", "no-store");
+    res.status(404).type("html").send(notFoundPage);
+  });
   return app;
 }

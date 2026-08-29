@@ -18,18 +18,43 @@ import { OpenRouterError } from "./openrouter.js";
 import { RequestQueue } from "./queue.js";
 import { maintainTyping } from "./typing.js";
 
-function splitDiscordMessage(text, limit = 1900) {
+function splitRawMessage(text, limit) {
   const parts = [];
   let remaining = text.trim();
   while (remaining.length > limit) {
     let splitAt = remaining.lastIndexOf("\n\n", limit);
+    if (splitAt < limit * 0.45) splitAt = remaining.lastIndexOf("\n", limit);
     if (splitAt < limit * 0.5) splitAt = remaining.lastIndexOf(" ", limit);
     if (splitAt < limit * 0.5) splitAt = limit;
-    parts.push(remaining.slice(0, splitAt).trim());
-    remaining = remaining.slice(splitAt).trim();
+    parts.push(remaining.slice(0, splitAt).trimEnd());
+    let delimiterLength = 0;
+    if (remaining.startsWith("\n\n", splitAt)) delimiterLength = 2;
+    else if (["\n", " "].includes(remaining[splitAt])) delimiterLength = 1;
+    remaining = remaining.slice(splitAt + delimiterLength);
   }
-  if (remaining) parts.push(remaining);
+  if (remaining.trim()) parts.push(remaining.trimEnd());
   return parts;
+}
+
+function fenceStateAfter(text, initialLanguage) {
+  let language = initialLanguage;
+  for (const match of text.matchAll(/```([^\n`]*)/g)) {
+    language = language === null ? match[1].trim().slice(0, 32) : null;
+  }
+  return language;
+}
+
+export function splitDiscordMessage(text, limit = 1900) {
+  const contentLimit = Math.max(1, limit - 64);
+  const rawParts = splitRawMessage(text, contentLimit);
+  let openLanguage = null;
+  return rawParts.map((part) => {
+    const prefix = openLanguage === null ? "" : `\`\`\`${openLanguage}\n`;
+    const nextOpenLanguage = fenceStateAfter(part, openLanguage);
+    const suffix = nextOpenLanguage === null ? "" : "\n```";
+    openLanguage = nextOpenLanguage;
+    return `${prefix}${part}${suffix}`;
+  });
 }
 
 async function replyWithoutPings(message, text) {

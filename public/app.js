@@ -20,31 +20,49 @@ function show(screen) {
   landingNav.hidden = screen !== "landing";
 }
 
-function setError(target) {
+function consumeQueryMessage(target, guildName = "") {
   const url = new URL(window.location.href);
   const code = url.searchParams.get("error");
-  if (!code) return;
-  target.textContent = `○ ${errorMessages[code] || "That didn’t finish. Try once more."}`;
+  if (code) {
+    target.textContent = `○ ${errorMessages[code] || "That didn’t finish. Try once more."}`;
+  } else if (guildName && url.searchParams.get("openrouter") === "connected") {
+    target.textContent = "✓ OpenRouter connected. Nullius is ready to use.";
+  } else if (guildName && url.searchParams.get("installed") === "1") {
+    target.textContent = `✓ Nullius was added to ${guildName}.`;
+  }
   url.searchParams.delete("error");
+  url.searchParams.delete("installed");
+  url.searchParams.delete("openrouter");
   window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
+async function requestJson(url, options = {}, timeoutMs = 10_000) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(data?.error || "request-failed");
+    return data;
+  } finally {
+    window.clearTimeout(timer);
+  }
 }
 
 async function saveNickname(nickname, state) {
   state.textContent = "Saving…";
   state.dataset.status = "saving";
   try {
-    const response = await fetch("api/nickname", {
+    const data = await requestJson("api/nickname", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ nickname }),
     });
-    if (!response.ok) throw new Error("Nickname failed");
-    const data = await response.json();
     state.textContent = "Saved";
     state.dataset.status = "saved";
     return data.nickname;
   } catch {
-    state.textContent = "Retry";
+    state.textContent = "Not saved";
     state.dataset.status = "error";
     return null;
   }
@@ -54,12 +72,11 @@ async function saveKnowledgePacks(packIds, state) {
   state.textContent = "Saving…";
   state.dataset.status = "saving";
   try {
-    const response = await fetch("api/knowledge", {
+    await requestJson("api/knowledge", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ packIds }),
     });
-    if (!response.ok) throw new Error("Knowledge failed");
     state.textContent = "Saved";
     state.dataset.status = "saved";
     return true;
@@ -68,6 +85,17 @@ async function saveKnowledgePacks(packIds, state) {
     state.dataset.status = "error";
     return false;
   }
+}
+
+function formatUsd(value) {
+  const amount = Math.max(0, Number(value) || 0);
+  const fractionDigits = amount > 0 && amount < 0.01 ? 3 : 2;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(amount);
 }
 
 function renderKnowledgePacks(packs) {
@@ -170,18 +198,24 @@ function renderReady(data) {
   const nicknameState = document.querySelector("#nickname-state");
   nickname.value = data.guild.nickname;
   let nicknameTimer;
-  let lastSavedNickname = nickname.value;
-  let nicknameSave = Promise.resolve();
-  const persistNickname = async () => {
-    nicknameSave = nicknameSave.then(async () => {
-      const candidate = nickname.value.trim();
-      if (candidate === lastSavedNickname) return;
-      nickname.setAttribute("aria-busy", "true");
-      const savedNickname = await saveNickname(candidate, nicknameState);
-      nickname.removeAttribute("aria-busy");
-      if (savedNickname !== null) lastSavedNickname = savedNickname;
-    });
-    await nicknameSave;
+  let lastSavedNickname = nickname.value.trim();
+  let nicknameSave = Promise.resolve(true);
+  let nicknameSaveRunning = false;
+  const persistNickname = () => {
+    if (nicknameSaveRunning) return nicknameSave;
+    nicknameSaveRunning = true;
+    nicknameSave = (async () => {
+      while (nickname.value.trim() !== lastSavedNickname) {
+        const candidate = nickname.value.trim();
+        nickname.setAttribute("aria-busy", "true");
+        const savedNickname = await saveNickname(candidate, nicknameState);
+        nickname.removeAttribute("aria-busy");
+        if (savedNickname === null) return false;
+        lastSavedNickname = savedNickname;
+      }
+      return true;
+    })().finally(() => { nicknameSaveRunning = false; });
+    return nicknameSave;
   };
   nickname.addEventListener("input", () => {
     nicknameState.textContent = "";
@@ -193,6 +227,11 @@ function renderReady(data) {
     clearTimeout(nicknameTimer);
     persistNickname();
   });
+  nickname.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    nickname.blur();
+  });
 
   const openButton = document.querySelector("#open-discord");
   const copiedPrompt = document.querySelector("#copied-prompt");
@@ -200,11 +239,20 @@ function renderReady(data) {
     const prompt = `<@${data.clientId}> what can you help with?`;
     openButton.disabled = true;
     openButton.setAttribute("aria-busy", "true");
+    openButton.textContent = "Finishing setup…";
+    clearTimeout(nicknameTimer);
+    const nicknameSaved = await persistNickname();
     openButton.textContent = "Opening Discord…";
     const copied = await copyText(prompt);
-    copiedPrompt.textContent = copied
-      ? "Prompt copied. Opening Discord…"
-      : "Opening Discord—mention Nullius to get started.";
+    if (!nicknameSaved) {
+      copiedPrompt.textContent = copied
+        ? "Nickname not saved. Prompt copied; opening Discord…"
+        : "Nickname not saved. Opening Discord—mention Nullius to begin.";
+    } else {
+      copiedPrompt.textContent = copied
+        ? "Prompt copied. Opening Discord…"
+        : "Opening Discord—mention Nullius to get started.";
+    }
     window.setTimeout(() => {
       window.location.assign(data.guild.channelUrl);
     }, 300);
@@ -216,25 +264,41 @@ function renderReady(data) {
   if (data.openRouterConnected) {
     trialState.hidden = true;
     openRouterState.hidden = false;
-    document.querySelector("#limit-status").textContent = `$${data.monthlyLimitUsd}/month limit`;
-  } else if (data.trialEnabled && data.trialRemaining > 0) {
+    const usage = Math.max(0, Number(data.monthlyUsageUsd) || 0);
+    const limit = Math.max(0, Number(data.monthlyLimitUsd) || 0);
+    const usageTrack = document.querySelector("#usage-track");
+    document.querySelector("#limit-status").textContent = `${formatUsd(usage)} of ${formatUsd(limit)}`;
+    document.querySelector("#usage-fill").style.width = `${
+      limit > 0 ? Math.min(100, (usage / limit) * 100) : 0
+    }%`;
+    usageTrack.setAttribute("aria-valuenow", String(usage));
+    usageTrack.setAttribute("aria-valuemax", String(limit));
+    usageTrack.setAttribute("aria-valuetext", `${formatUsd(usage)} of ${formatUsd(limit)} used this month`);
+  } else if (data.trialEnabled) {
     trialState.hidden = false;
     openRouterState.hidden = true;
-    document.querySelector("#trial-status").textContent = `${data.trialRemaining} free answers remaining`;
+    const remaining = Math.max(0, Number(data.trialRemaining) || 0);
+    trialState.dataset.status = remaining > 0 ? "active" : "attention";
+    document.querySelector("#trial-status").textContent = remaining > 0
+      ? `${remaining} included answer${remaining === 1 ? "" : "s"} remaining`
+      : "Included answers used";
   } else {
     trialState.hidden = true;
     openRouterState.hidden = true;
+  }
+  if (!data.openRouterConnected) {
     connectOpenRouter.hidden = false;
+    connectOpenRouter.textContent = data.trialEnabled && data.trialRemaining > 0
+      ? "Connect your OpenRouter"
+      : "Connect OpenRouter";
   }
   renderKnowledgePacks(data.knowledgePacks);
-  setError(document.querySelector("#ready-status"));
+  consumeQueryMessage(document.querySelector("#ready-status"), data.guild.name);
 }
 
 async function init() {
   try {
-    const response = await fetch("api/session", { headers: { Accept: "application/json" } });
-    const data = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(data?.error || "setup-unavailable");
+    const data = await requestJson("api/session", { headers: { Accept: "application/json" } });
     if (data.authenticated) {
       renderReady(data);
       return;
@@ -242,7 +306,7 @@ async function init() {
     show("landing");
     if (!data.trialEnabled) document.querySelector("#trial-copy").hidden = true;
     else document.querySelector("#trial-copy").firstChild.textContent = `${data.trialLimit} answers included `;
-    setError(document.querySelector("#landing-status"));
+    consumeQueryMessage(document.querySelector("#landing-status"));
   } catch (error) {
     show("landing");
     document.querySelector("#landing-status").textContent = error.message === "server-unavailable"

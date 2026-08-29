@@ -84,3 +84,27 @@ test("applies bounded request queue defaults and overrides", () => {
     1,
   );
 });
+
+test("normalizes and validates the public URL and port", () => {
+  const config = loadConfig({
+    ...requiredEnv,
+    PUBLIC_URL: "https://example.com/nullius///",
+    PORT: "3011",
+  });
+  assert.equal(config.publicUrl, "https://example.com/nullius");
+  assert.equal(config.discord.callbackUrl, "https://example.com/nullius/auth/discord/callback");
+  assert.equal(config.port, 3011);
+
+  assert.throws(
+    () => loadConfig({ ...requiredEnv, PUBLIC_URL: "example.com/nullius" }),
+    /valid absolute URL/,
+  );
+  assert.throws(
+    () => loadConfig({ ...requiredEnv, PUBLIC_URL: "https://example.com/?preview=1" }),
+    /query string or fragment/,
+  );
+  assert.throws(
+    () => loadConfig({ ...requiredEnv, PORT: "70000" }),
+    /between 1 and 65535/,
+  );
+});

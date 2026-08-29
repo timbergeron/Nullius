@@ -34,7 +34,7 @@ Open <http://localhost:3000>. The generated Discord authorization asks only for 
 
 Set `OPENROUTER_API_KEY` to fund the optional free trial. A successful answer consumes one of the server's `TRIAL_ANSWER_LIMIT` answers; errors do not.
 
-After the trial, the server owner clicks **Connect OpenRouter**. Nullius uses OpenRouter's PKCE authorization flow to receive a dedicated key, validates it, and stores it encrypted with `APP_SECRET`. Users never paste a credential into Nullius.
+The server owner can click **Connect OpenRouter** at any time, including before the trial runs out. Nullius uses OpenRouter's PKCE authorization flow to receive a dedicated key, validates it, and stores it encrypted with `APP_SECRET`. Users never paste a credential into Nullius.
 
 `OPENROUTER_MODEL` defaults to `openrouter/auto`. The system prompt asks for two or three sentences by default. Nullius normally allows up to 4,096 completion tokens because reasoning models count hidden reasoning against that budget. If OpenRouter returns an empty or length-limited result, Nullius retries once with an 8,192-token ceiling. Each provider attempt has a configurable 90-second timeout. These are ceilings, not requested answer lengths.
 
@@ -49,7 +49,7 @@ disabled with `QSSM_PREMIUM_DAILY_LIMIT`. A successful premium review consumes t
 a failed attempt falls back to the draft and leaves it available. Nullius stores only the
 UTC date and count, not message content.
 
-Each connected server starts with a $5 monthly safety limit. Nullius tracks the cost returned with each OpenRouter response and stops before starting another request once the limit has been reached.
+Each connected server starts with a $5 monthly safety limit. The setup page shows current monthly usage against that limit. Nullius tracks the cost returned with each OpenRouter response and stops before starting another request once the limit has been reached.
 
 Requests are serialized per Discord server. The first starts immediately and up to five more wait in arrival order. Nullius acknowledges each queued mention with its position, allows at most one waiting request per user, and expires queued work after five minutes rather than answering stale conversation later. This lifetime is deliberately longer than a normal provider attempt and its one permitted completion retry.
 

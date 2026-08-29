@@ -24,18 +24,39 @@ function nonNegativeInteger(value, fallback, name, maximum) {
   return Math.min(Math.floor(parsed), maximum);
 }
 
+function normalizedPublicUrl(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("PUBLIC_URL must be a valid absolute URL");
+  }
+  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) {
+    throw new Error("PUBLIC_URL must use HTTP or HTTPS without embedded credentials");
+  }
+  if (url.search || url.hash) {
+    throw new Error("PUBLIC_URL must not contain a query string or fragment");
+  }
+  const pathname = url.pathname === "/" ? "" : url.pathname.replace(/\/+$/, "");
+  return `${url.origin}${pathname}`;
+}
+
 export function loadConfig(env = process.env) {
   const appSecret = required(env, "APP_SECRET");
   if (appSecret.length < 32) {
     throw new Error("APP_SECRET must contain at least 32 characters");
   }
 
-  const publicUrl = (env.PUBLIC_URL?.trim() || "http://localhost:3000").replace(/\/$/, "");
+  const publicUrl = normalizedPublicUrl(
+    env.PUBLIC_URL?.trim() || "http://localhost:3000",
+  );
+  const port = Math.floor(positiveNumber(env.PORT, 3000, "PORT"));
+  if (port > 65_535) throw new Error("PORT must be between 1 and 65535");
 
   return {
     appSecret,
     publicUrl,
-    port: Math.floor(positiveNumber(env.PORT, 3000, "PORT")),
+    port,
     dataFile: path.resolve(env.DATA_FILE?.trim() || "./data/store.json"),
     discord: {
       clientId: required(env, "DISCORD_CLIENT_ID"),

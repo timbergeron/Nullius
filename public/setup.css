@@ -114,6 +114,53 @@
   line-height: 1.55;
 }
 
+.code-block {
+  position: relative;
+  margin: 20px 0;
+}
+
+.guide .code-block pre {
+  margin: 0;
+  padding-right: 98px;
+}
+
+.copy-button {
+  position: absolute;
+  z-index: 1;
+  top: 10px;
+  right: 10px;
+  min-width: 66px;
+  min-height: 32px;
+  padding: 5px 10px;
+  border: 1px solid rgb(244 241 233 / 20%);
+  border-radius: 8px;
+  background: #2a2b27;
+  color: #f4f1e9;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 700;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.copy-button:hover:not(:disabled) {
+  border-color: rgb(244 241 233 / 40%);
+  background: #34352f;
+}
+
+.copy-button:disabled {
+  cursor: default;
+}
+
+.copy-button[data-status="copied"] {
+  border-color: rgb(112 173 137 / 55%);
+  color: #a8d6b9;
+}
+
+.copy-button[data-status="error"] {
+  border-color: rgb(237 117 77 / 55%);
+  color: #f2a58b;
+}
+
 .guide pre code {
   background: transparent;
   padding: 0;
@@ -172,5 +219,15 @@
   .guide ol,
   .guide ul {
     padding-left: 22px;
+  }
+}
+
+@media print {
+  .copy-button {
+    display: none;
+  }
+
+  .guide .code-block pre {
+    padding-right: 18px;
   }
 }

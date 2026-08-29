@@ -77,6 +77,14 @@ export function createPkcePair() {
   return { verifier, challenge };
 }
 
+function decodeCookieComponent(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export function parseCookies(header = "") {
   return Object.fromEntries(
     header
@@ -85,10 +93,10 @@ export function parseCookies(header = "") {
       .filter(Boolean)
       .map((part) => {
         const separator = part.indexOf("=");
-        if (separator === -1) return [decodeURIComponent(part), ""];
+        if (separator === -1) return [decodeCookieComponent(part), ""];
         return [
-          decodeURIComponent(part.slice(0, separator)),
-          decodeURIComponent(part.slice(separator + 1)),
+          decodeCookieComponent(part.slice(0, separator)),
+          decodeCookieComponent(part.slice(separator + 1)),
         ];
       }),
   );

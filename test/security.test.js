@@ -35,4 +35,8 @@ test("serializes and parses cookies", () => {
   });
   assert.match(cookie, /^hello=a%20value;/);
   assert.equal(parseCookies("hello=a%20value; another=yes").hello, "a value");
+  assert.deepEqual(parseCookies("broken=%E0%A4%A; valid=yes"), {
+    broken: "%E0%A4%A",
+    valid: "yes",
+  });
 });

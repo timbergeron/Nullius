@@ -11,6 +11,16 @@
     <meta property="og:title" content="Nullius — Answers that check the source">
     <meta property="og:description" content="A quiet, mention-only Discord bot that reads the moment, checks current QSS-M evidence, and challenges its own draft.">
     <meta property="og:url" content="https://timbergeron.com/nullius/">
+    <meta property="og:image" content="https://timbergeron.com/nullius/og.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="627">
+    <meta property="og:image:alt" content="Nullius. Answers that check the source.">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Nullius — Answers that check the source">
+    <meta name="twitter:description" content="A quiet, mention-only Discord bot that reads the moment, checks current QSS-M evidence, and challenges its own draft.">
+    <meta name="twitter:image" content="https://timbergeron.com/nullius/og.png">
+    <meta name="twitter:image:alt" content="Nullius. Answers that check the source.">
     <title>Nullius — Answers that check the source</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="styles.css">
@@ -124,8 +134,19 @@
 
         <div class="connection-card" id="openrouter-state" hidden>
           <span class="status-dot" aria-hidden="true"></span>
-          <span>OpenRouter connected</span>
-          <span class="connection-detail" id="limit-status"></span>
+          <span class="connection-copy">
+            <span>OpenRouter connected</span>
+            <span class="connection-detail" id="limit-status"></span>
+            <span
+              class="usage-track"
+              id="usage-track"
+              role="progressbar"
+              aria-label="Monthly OpenRouter usage"
+              aria-valuemin="0"
+            >
+              <span id="usage-fill"></span>
+            </span>
+          </span>
         </div>
 
         <a class="secondary-button" id="connect-openrouter" href="auth/openrouter" hidden>

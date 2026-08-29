@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { ChannelType, PermissionsBitField } from "discord.js";
 import { sealSession } from "../src/security.js";
-import { createWebApp } from "../src/web.js";
+import { bestChannel, createWebApp } from "../src/web.js";
 
 function fixture(overrides = {}) {
   const config = {
@@ -48,20 +49,39 @@ test("serves the setup page and reports health", async () => {
     assert.match(landing, /Daily frontier review/);
     assert.match(landing, /Add to another Discord server/);
     assert.match(landing, /id="add-another-server" href="auth\/discord"/);
+    assert.match(landing, /property="og:image" content="https:\/\/timbergeron\.com\/nullius\/og\.png"/);
+
+    const socialCard = await fetch(`${baseUrl}/og.png`);
+    assert.equal(socialCard.status, 200);
+    assert.equal(socialCard.headers.get("content-type"), "image/png");
 
     const guide = await fetch(`${baseUrl}/setup.html`);
     assert.equal(guide.status, 200);
-    assert.match(await guide.text(), /Set up Nullius/);
+    const guideHtml = await guide.text();
+    assert.match(guideHtml, /Set up Nullius/);
+    assert.match(guideHtml, /guide\.js/);
 
     const packGuide = await fetch(`${baseUrl}/knowledge-packs.html`);
     assert.equal(packGuide.status, 200);
     assert.match(await packGuide.text(), /Teach Nullius a subject/);
 
-    const health = await fetch(`${baseUrl}/healthz`).then((response) => response.json());
-    assert.deepEqual(health, { ok: true, discord: true });
+    const healthResponse = await fetch(`${baseUrl}/healthz`);
+    assert.equal(healthResponse.headers.get("cache-control"), "no-store");
+    assert.deepEqual(await healthResponse.json(), { ok: true, discord: true });
 
     const session = await fetch(`${baseUrl}/api/session`).then((response) => response.json());
     assert.deepEqual(session, { authenticated: false, trialEnabled: false, trialLimit: 20 });
+
+    const missingApi = await fetch(`${baseUrl}/api/missing`);
+    assert.equal(missingApi.status, 404);
+    assert.deepEqual(await missingApi.json(), { error: "not-found" });
+
+    const missingPage = await fetch(`${baseUrl}/missing`);
+    assert.equal(missingPage.status, 404);
+    const missingHtml = await missingPage.text();
+    assert.match(missingHtml, /This page wandered off/);
+    assert.match(missingHtml, /href="\/nullius\/"/);
+    assert.equal(missingPage.headers.get("cache-control"), "no-store");
   });
 });
 
@@ -124,4 +144,39 @@ test("rejects an OpenRouter callback without an exact OAuth state", async () => 
     assert.match(response.headers.get("set-cookie"), /Max-Age=0/);
     assert.equal(exchangeCalled, false);
   }, app);
+});
+
+test("chooses a readable text channel and prefers the system channel", () => {
+  const me = { id: "bot" };
+  const allPermissions = new Set([
+    PermissionsBitField.Flags.ViewChannel,
+    PermissionsBitField.Flags.SendMessages,
+    PermissionsBitField.Flags.ReadMessageHistory,
+  ]);
+  const channel = (id, type, rawPosition, permissions = allPermissions) => ({
+    id,
+    type,
+    rawPosition,
+    permissionsFor: () => ({ has: (permission) => permissions.has(permission) }),
+  });
+  const noHistory = new Set([
+    PermissionsBitField.Flags.ViewChannel,
+    PermissionsBitField.Flags.SendMessages,
+  ]);
+  const guild = {
+    members: { me },
+    systemChannelId: "system",
+    channels: {
+      cache: new Map([
+        ["voice", channel("voice", ChannelType.GuildVoice, 0)],
+        ["unreadable", channel("unreadable", ChannelType.GuildText, 1, noHistory)],
+        ["general", channel("general", ChannelType.GuildText, 2)],
+        ["system", channel("system", ChannelType.GuildText, 3)],
+      ]),
+    },
+  };
+
+  assert.equal(bestChannel(guild).id, "system");
+  guild.systemChannelId = "unreadable";
+  assert.equal(bestChannel(guild).id, "general");
 });
