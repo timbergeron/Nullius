@@ -37,7 +37,7 @@ while the server's daily quota is available. Restart Nullius after changing thes
 
 ```bash
 QSSM_OPENROUTER_MODEL=openai/gpt-5.6-luna-pro
-QSSM_PREMIUM_OPENROUTER_MODEL=openai/gpt-5.6-sol
+QSSM_PREMIUM_OPENROUTER_MODEL=openai/gpt-6-astra
 QSSM_PREMIUM_DAILY_LIMIT=1
 ```
 
