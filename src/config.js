@@ -67,7 +67,7 @@ export function loadConfig(env = process.env) {
     openRouter: {
       callbackUrl: `${publicUrl}/auth/openrouter/callback`,
       trialApiKey: env.OPENROUTER_API_KEY?.trim() || "",
-      model: env.OPENROUTER_MODEL?.trim() || "openrouter/auto",
+      model: env.OPENROUTER_MODEL?.trim() || "deepseek/deepseek-v4.1-flash",
       packModels: {
         qssm: env.QSSM_OPENROUTER_MODEL?.trim() || "",
       },
