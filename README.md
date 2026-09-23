@@ -187,7 +187,7 @@ The checked-in deployment files target `https://timbergeron.com/nullius` on loca
 PUBLIC_URL=https://timbergeron.com/nullius
 PORT=3011
 OPENROUTER_MODEL=openai/gpt-6-luna
-QSSM_OPENROUTER_MODEL=openai/gpt-5.6-luna-pro
+QSSM_OPENROUTER_MODEL=openai/gpt-6-sol
 QSSM_PREMIUM_OPENROUTER_MODEL=openai/gpt-6-astra
 QSSM_PREMIUM_DAILY_LIMIT=1
 KNOWLEDGE_ENABLED=true
