@@ -36,7 +36,7 @@ Set `OPENROUTER_API_KEY` to fund the optional free trial. A successful answer co
 
 The server owner can click **Connect OpenRouter** at any time, including before the trial runs out. Nullius uses OpenRouter's PKCE authorization flow to receive a dedicated key, validates it, and stores it encrypted with `APP_SECRET`. Users never paste a credential into Nullius.
 
-`OPENROUTER_MODEL` defaults to `deepseek/deepseek-v4.1-flash`. The system prompt asks for two or three sentences by default. Nullius normally allows up to 4,096 completion tokens because reasoning models count hidden reasoning against that budget. If OpenRouter returns an empty or length-limited result, Nullius retries once with an 8,192-token ceiling. Each provider attempt has a configurable 90-second timeout. These are ceilings, not requested answer lengths.
+`OPENROUTER_MODEL` defaults to `openai/gpt-6-luna`. The system prompt asks for two or three sentences by default. Nullius normally allows up to 4,096 completion tokens because reasoning models count hidden reasoning against that budget. If OpenRouter returns an empty or length-limited result, Nullius retries once with an 8,192-token ceiling. Each provider attempt has a configurable 90-second timeout. These are ceilings, not requested answer lengths.
 
 `QSSM_OPENROUTER_MODEL` can route only QSS-M-backed answers through a different
 operator-selected model. It is the default for both the draft and adversarial review when
@@ -68,7 +68,7 @@ ends only after the answer or error response has finished sending.
 | `DISCORD_CLIENT_SECRET` | Yes | — | Discord OAuth secret |
 | `DISCORD_BOT_TOKEN` | Yes | — | Shared Nullius bot token |
 | `OPENROUTER_API_KEY` | No | — | Operator-funded trial key |
-| `OPENROUTER_MODEL` | No | `deepseek/deepseek-v4.1-flash` | One server-controlled model/router |
+| `OPENROUTER_MODEL` | No | `openai/gpt-6-luna` | One server-controlled model/router |
 | `QSSM_OPENROUTER_MODEL` | No | — | Default model override for the QSS-M draft and review |
 | `QSSM_PREMIUM_OPENROUTER_MODEL` | No | — | Optional final-review model for the first daily QSS-M answer per server |
 | `QSSM_PREMIUM_DAILY_LIMIT` | No | `1` | Successful premium QSS-M reviews per server per UTC day; `0` disables |
@@ -186,7 +186,7 @@ The checked-in deployment files target `https://timbergeron.com/nullius` on loca
 ```dotenv
 PUBLIC_URL=https://timbergeron.com/nullius
 PORT=3011
-OPENROUTER_MODEL=deepseek/deepseek-v4.1-flash
+OPENROUTER_MODEL=openai/gpt-6-luna
 QSSM_OPENROUTER_MODEL=openai/gpt-5.6-luna-pro
 QSSM_PREMIUM_OPENROUTER_MODEL=openai/gpt-6-astra
 QSSM_PREMIUM_DAILY_LIMIT=1

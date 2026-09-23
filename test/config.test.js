@@ -15,6 +15,7 @@ test("defaults recent channel context to ten messages", () => {
 
 test("uses reasoning-safe OpenRouter budgets and a bounded timeout", () => {
   const defaults = loadConfig(requiredEnv).openRouter;
+  assert.equal(defaults.model, "openai/gpt-6-luna");
   assert.equal(defaults.maxOutputTokens, 4096);
   assert.equal(defaults.retryOutputTokens, 8192);
   assert.equal(defaults.requestTimeoutMs, 90_000);

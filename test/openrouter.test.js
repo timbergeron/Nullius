@@ -77,6 +77,30 @@ test("allows a completion to override the configured model", async (t) => {
   assert.equal(requestBody.model, "openai/gpt-5.6-luna-pro");
 });
 
+test("omits unsupported temperature for GPT-6 requests", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const requests = [];
+  globalThis.fetch = async (_url, options) => {
+    requests.push(JSON.parse(options.body));
+    return response(completion({ content: "Answer." }));
+  };
+
+  for (const model of ["openai/gpt-6-luna", "openai/gpt-6-astra"]) {
+    await client().complete({
+      apiKey: "secret",
+      messages: [{ role: "user", content: "Question" }],
+      sessionId: "guild:message",
+      userId: "user",
+      model,
+    });
+  }
+
+  assert.deepEqual(requests.map(({ model }) => model), ["openai/gpt-6-luna", "openai/gpt-6-astra"]);
+  assert.ok(requests.every((request) => !("temperature" in request)));
+  assert.ok(requests.every((request) => request.max_completion_tokens === 4096));
+});
+
 test("retries a length-limited answer with the larger budget", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
