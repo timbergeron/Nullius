@@ -13,6 +13,11 @@ test("defaults recent channel context to ten messages", () => {
   assert.equal(loadConfig(requiredEnv).context.recentMessages, 10);
 });
 
+test("provides a dedicated configurable vision model", () => {
+  assert.equal(loadConfig(requiredEnv).openRouter.visionModel, "google/gemini-3-flash-preview");
+  assert.equal(loadConfig({ ...requiredEnv, OPENROUTER_VISION_MODEL: " provider/vision " }).openRouter.visionModel, "provider/vision");
+});
+
 test("uses reasoning-safe OpenRouter budgets and a bounded timeout", () => {
   const defaults = loadConfig(requiredEnv).openRouter;
   assert.equal(defaults.model, "openai/gpt-6-luna");

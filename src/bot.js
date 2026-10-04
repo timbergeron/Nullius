@@ -17,6 +17,7 @@ import {
 import { OpenRouterError } from "./openrouter.js";
 import { RequestQueue } from "./queue.js";
 import { maintainTyping } from "./typing.js";
+import { messageImages, prepareConversationImages } from "./images.js";
 
 function splitRawMessage(text, limit) {
   const parts = [];
@@ -149,6 +150,15 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
         maxReplyMessages: config.context.maxMessages,
         logger,
       });
+      const vision = await prepareConversationImages(context);
+      const hasImages = vision.images.length > 0;
+      if (hasImages || vision.omitted.length) {
+        logger.info?.("Discord image context prepared", {
+          ...requestDetails, source: vision.source,
+          imageCount: vision.images.length, omittedCount: vision.omitted.length,
+          truncated: vision.truncated,
+        });
+      }
       const retrieved = knowledge
         ? await knowledge.retrieve({
           packIds: refreshedConfig.knowledgePacks || [],
@@ -166,13 +176,15 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
         botId: client.user.id,
         maxCharacters: config.context.maxCharacters,
         knowledge: retrieved,
+        vision,
       });
       const rootMessageId = context[0]?.id || message.id;
       const qssmPremium = config.openRouter.packPremium.qssm;
       const qssmPremiumUsage = knowledgeUsesPack(retrieved, "qssm")
         ? store.getDailyPremiumUsage(message.guildId, "qssm")
         : null;
-      const premiumReviewModel = availablePremiumReviewModel(
+      // Both passes must see the images; do not spend a text premium quota on vision.
+      const premiumReviewModel = hasImages ? "" : availablePremiumReviewModel(
         retrieved,
         "qssm",
         qssmPremium,
@@ -184,7 +196,7 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
         messages,
         sessionId: `${message.guildId}:${rootMessageId}`,
         userId: message.author.id,
-        model: knowledgeModelOverride(retrieved, config.openRouter.packModels),
+        model: hasImages ? config.openRouter.visionModel : knowledgeModelOverride(retrieved, config.openRouter.packModels),
         reviewModel: premiumReviewModel,
         adversarialReview: Boolean(retrieved?.packs?.length),
         logger,
@@ -247,7 +259,7 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
     if (!message.mentions.users.has(client.user.id)) return;
 
     const question = stripBotMention(message.content || "", client.user.id);
-    if (!question && !message.reference?.messageId) {
+    if (!question && !message.reference?.messageId && !messageImages(message).length) {
       await replyWithoutPings(message, "Reply to something and ask me about it.").catch(() => {});
       return;
     }

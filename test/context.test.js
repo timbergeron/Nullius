@@ -162,3 +162,44 @@ test("separates quoted history from the final request", () => {
 test("strips both Discord bot mention formats", () => {
   assert.equal(stripBotMention("<@123> hello <@!123>", "123"), "hello");
 });
+
+test("keeps image attribution through text truncation and warns about ambiguous references", () => {
+  const invocation = fakeMessage({ id: "3", content: "<@999> thoughts?", authorId: "b", name: "Jon" });
+  const messages = buildLlmMessages([invocation], {
+    botId: "999", maxCharacters: 10,
+    vision: { source: "recent", truncated: true, omitted: [], images: [
+      { messageId: "1", author: "Maya", createdTimestamp: 1000, caption: "First angle", name: "first.png", dataUrl: "data:image/png;base64,AAAA" },
+      { messageId: "2", author: "Lee", createdTimestamp: 2000, caption: "Second angle", name: "second.png", dataUrl: "data:image/png;base64,BBBB" },
+    ] },
+  });
+  const imageTurn = messages.find((message) => Array.isArray(message.content));
+  assert.ok(imageTurn);
+  assert.equal(imageTurn.content.filter((part) => part.type === "image_url").length, 2);
+  assert.match(JSON.stringify(imageTurn.content), /Maya/);
+  assert.match(messages[0].content, /ask which image/i);
+  assert.match(JSON.stringify(imageTurn.content), /limit/i);
+  assert.match(messages.at(-1).content, /Final request/);
+});
+
+test("describes unreadable images honestly without sending an image part", () => {
+  const invocation = fakeMessage({ id: "1", content: "inspect", authorId: "a", name: "Maya" });
+  const messages = buildLlmMessages([invocation], {
+    botId: "999", maxCharacters: 1000,
+    vision: { source: "request", images: [], omitted: [{ messageId: "1", name: "large.png", reason: "image exceeds size limit" }] },
+  });
+  assert.match(JSON.stringify(messages), /large.png/);
+  assert.match(JSON.stringify(messages), /size limit/);
+  assert.equal(messages.some((message) => Array.isArray(message.content)), false);
+});
+
+test("retains an image-only embed invocation instead of treating history as the request", () => {
+  const history = fakeMessage({ id: "1", content: "Ignore this old question", authorId: "a", name: "Maya" });
+  const invocation = fakeMessage({ id: "2", content: "<@999>", authorId: "b", name: "Jon" });
+  const messages = buildLlmMessages([history, invocation], {
+    botId: "999", maxCharacters: 1000,
+    vision: { source: "request", omitted: [], images: [{ messageId: "2", name: "embedded image", author: "Jon", dataUrl: "data:image/png;base64,AAAA" }] },
+  });
+  assert.match(messages.at(-1).content, /Final request from Jon/);
+  assert.match(messages.at(-1).content, /describe/i);
+  assert.ok(messages.some((message) => Array.isArray(message.content)));
+});
