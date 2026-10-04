@@ -39,9 +39,10 @@ The server owner can click **Connect OpenRouter** at any time, including before 
 `OPENROUTER_MODEL` defaults to `openai/gpt-6-luna`. The system prompt asks for two or three sentences by default. Nullius normally allows up to 4,096 completion tokens because reasoning models count hidden reasoning against that budget. If OpenRouter returns an empty or length-limited result, Nullius retries once with an 8,192-token ceiling. Each provider attempt has a configurable 90-second timeout. These are ceilings, not requested answer lengths.
 
 `OPENROUTER_VISION_MODEL` defaults to `google/gemini-3-flash-preview`. Requests that
-include readable images use it for both the answer and any knowledge-pack review, with
-the same images and evidence in both passes. These requests leave the daily premium
-QSS-M review quota available for text requests. The override must accept image input.
+include readable images or MP4 clips use it for both the answer and any knowledge-pack
+review, with the same media and evidence in both passes. These requests leave the daily
+premium QSS-M review quota available for text requests. The override must accept image
+and video input.
 
 `QSSM_OPENROUTER_MODEL` can route only QSS-M-backed answers through a different
 operator-selected model. It is the default for both the draft and adversarial review when
@@ -74,7 +75,7 @@ ends only after the answer or error response has finished sending.
 | `DISCORD_BOT_TOKEN` | Yes | — | Shared Nullius bot token |
 | `OPENROUTER_API_KEY` | No | — | Operator-funded trial key |
 | `OPENROUTER_MODEL` | No | `openai/gpt-6-luna` | One server-controlled model/router |
-| `OPENROUTER_VISION_MODEL` | No | `google/gemini-3-flash-preview` | Image-capable model for image answers and reviews |
+| `OPENROUTER_VISION_MODEL` | No | `google/gemini-3-flash-preview` | Image/video-capable model for media answers and reviews |
 | `QSSM_OPENROUTER_MODEL` | No | — | Default model override for the QSS-M draft and review |
 | `QSSM_PREMIUM_OPENROUTER_MODEL` | No | — | Optional final-review model for the first daily QSS-M answer per server |
 | `QSSM_PREMIUM_DAILY_LIMIT` | No | `1` | Successful premium QSS-M reviews per server per UTC day; `0` disables |
@@ -98,7 +99,7 @@ ends only after the answer or error response has finished sending.
 
 The data file needs a persistent disk in production. Storage is isolated in `src/store.js`, so it can later be replaced by Google Sheets or another service without changing the bot.
 
-## Images in Discord
+## Images and clips in Discord
 
 Attach an image and mention Nullius, reply to an image with a question, or ask about an
 image just posted: `@Nullius why does this screenshot look broken?` An image-only mention
@@ -108,15 +109,21 @@ Nullius considers image posts within five minutes of the request in the recent c
 window. It includes authors, timestamps, and captions so the model can resolve the
 reference or ask which image you mean. Comparison questions can use multiple images.
 
-PNG, JPEG, WebP, and GIF attachments and Discord image embeds are supported; link-preview
-logos and video thumbnails are excluded. Nullius downloads only from Discord image hosts,
-does not follow redirects, and sends image bytes to OpenRouter. Each request includes at
-most four images, eight MiB per image, and sixteen MiB total, with an eight-second timeout
-per download and fifteen seconds for all downloads. Failed or excluded images are marked
-in the context so Nullius can explain the limit or ask you to upload them again. GIFs are
-image inputs, not a promise of animation analysis. Images are held only for the request;
+PNG, JPEG, WebP, GIF, and MP4 attachments and Discord image/GIF previews are supported;
+link-preview logos and general video thumbnails are excluded. MP4 clips use native video
+input, so the model can inspect motion as well as still frames. Clips must have a verified
+MP4 duration of two minutes or less; other video formats should be converted to MP4 or
+shared as a still image. Clips follow the same attachment, reply, and recent-reference
+priority as images: `@Nullius what happens in that clip?` GIF previews use image input;
+send an MP4 attachment for motion analysis.
+
+Nullius downloads only from Discord media hosts, does not follow redirects, and sends
+media bytes to OpenRouter. Each request includes at most four media items, eight MiB per
+item, and sixteen MiB total, with an eight-second timeout per download and fifteen seconds
+for all downloads. Failed or excluded media are marked in the context so Nullius can
+explain the limit or ask you to upload them again. Media are held only for the request;
 Nullius does not write them or message content to disk or logs. Disabling recent channel
-context also disables ambient image discovery; attachments and explicit replies still work.
+context also disables ambient media discovery; attachments and explicit replies still work.
 
 ## Knowledge packs
 
@@ -256,7 +263,7 @@ The `^~` location is intentional: it keeps the site's existing global JavaScript
 
 - slash commands and model selection;
 - background collection or storage of channel history;
-- non-image attachments, tools, and web search;
+- other attachment types, tools, and web search;
 - autonomous messages and long-term memory;
 - a general-purpose dashboard.
 

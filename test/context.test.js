@@ -167,7 +167,7 @@ test("keeps image attribution through text truncation and warns about ambiguous 
   const invocation = fakeMessage({ id: "3", content: "<@999> thoughts?", authorId: "b", name: "Jon" });
   const messages = buildLlmMessages([invocation], {
     botId: "999", maxCharacters: 10,
-    vision: { source: "recent", truncated: true, omitted: [], images: [
+    vision: { source: "recent", truncated: true, omitted: [], items: [
       { messageId: "1", author: "Maya", createdTimestamp: 1000, caption: "First angle", name: "first.png", dataUrl: "data:image/png;base64,AAAA" },
       { messageId: "2", author: "Lee", createdTimestamp: 2000, caption: "Second angle", name: "second.png", dataUrl: "data:image/png;base64,BBBB" },
     ] },
@@ -185,7 +185,7 @@ test("describes unreadable images honestly without sending an image part", () =>
   const invocation = fakeMessage({ id: "1", content: "inspect", authorId: "a", name: "Maya" });
   const messages = buildLlmMessages([invocation], {
     botId: "999", maxCharacters: 1000,
-    vision: { source: "request", images: [], omitted: [{ messageId: "1", name: "large.png", reason: "image exceeds size limit" }] },
+    vision: { source: "request", items: [], omitted: [{ messageId: "1", name: "large.png", reason: "image exceeds size limit" }] },
   });
   assert.match(JSON.stringify(messages), /large.png/);
   assert.match(JSON.stringify(messages), /size limit/);
@@ -197,9 +197,22 @@ test("retains an image-only embed invocation instead of treating history as the 
   const invocation = fakeMessage({ id: "2", content: "<@999>", authorId: "b", name: "Jon" });
   const messages = buildLlmMessages([history, invocation], {
     botId: "999", maxCharacters: 1000,
-    vision: { source: "request", omitted: [], images: [{ messageId: "2", name: "embedded image", author: "Jon", dataUrl: "data:image/png;base64,AAAA" }] },
+    vision: { source: "request", omitted: [], items: [{ messageId: "2", name: "embedded image", author: "Jon", dataUrl: "data:image/png;base64,AAAA" }] },
   });
   assert.match(messages.at(-1).content, /Final request from Jon/);
   assert.match(messages.at(-1).content, /describe/i);
   assert.ok(messages.some((message) => Array.isArray(message.content)));
+});
+
+test("sends native video parts and labels video attachments as supplied media", () => {
+  const invocation = fakeMessage({ id: "1", content: "<@999> describe this clip", authorId: "a", name: "Maya" });
+  invocation.attachments.set("video", { name: "throne.mp4" });
+  const messages = buildLlmMessages([invocation], {
+    botId: "999", maxCharacters: 1000,
+    vision: { source: "request", items: [{ kind: "video", messageId: "1", name: "throne.mp4", durationSeconds: 2, dataUrl: "data:video/mp4;base64,AAAA" }], omitted: [] },
+  });
+  const turn = messages.find((message) => Array.isArray(message.content));
+  assert.deepEqual(turn.content.find((part) => part.type === "video_url"), { type: "video_url", video_url: { url: "data:video/mp4;base64,AAAA" } });
+  assert.match(messages.at(-1).content, /Media supplied below: throne.mp4/);
+  assert.doesNotMatch(messages.at(-1).content, /Attachment omitted/);
 });

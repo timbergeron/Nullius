@@ -136,3 +136,26 @@ test("keeps ordinary requests on the text model without downloading nearby image
   assert.equal(requests[0].model, "openai/gpt-6-luna");
   assert.equal(requests.length, 1);
 });
+
+test("accepts a video-only mention and sends native video parts to the vision model", async (t) => {
+  const requests = [];
+  const mp4 = Buffer.alloc(56);
+  mp4.writeUInt32BE(20, 0); mp4.write("ftyp", 4);
+  mp4.writeUInt32BE(36, 20); mp4.write("moov", 24);
+  mp4.writeUInt32BE(28, 28); mp4.write("mvhd", 32);
+  mp4.writeUInt32BE(1000, 48); mp4.writeUInt32BE(2000, 52);
+  const result = await invokeBot(t, {
+    content: "<@999>",
+    attachments: new Map([["video", { name: "throne.mp4", contentType: "video/mp4", size: mp4.length, url: "https://cdn.discordapp.com/attachments/channel/501/throne.mp4" }]]),
+    fetchImpl: async (url, options) => {
+      if (url.startsWith("https://cdn.discordapp.com/")) return new Response(mp4, { headers: { "content-type": "video/mp4" } });
+      requests.push(JSON.parse(options.body));
+      return providerResponse("The clip shows a throne.");
+    },
+  });
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].model, "google/gemini-3-flash-preview");
+  const video = requests[0].messages.flatMap((message) => Array.isArray(message.content) ? message.content : []).find((part) => part.type === "video_url");
+  assert.match(video.video_url.url, /^data:video\/mp4;base64,/);
+  assert.match(result.reply.content, /throne/);
+});
