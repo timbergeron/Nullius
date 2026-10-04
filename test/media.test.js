@@ -221,3 +221,26 @@ test("omits corrupt videos or videos exceeding the two-minute limit", async () =
     assert.equal(result.omitted[0].kind, "video");
   }
 });
+
+test("selects iPhone MOV replies and normalizes QuickTime MIME for the provider", async () => {
+  const post = message("1", "", ["iphone.mov"]);
+  post.attachments.get("0").contentType = "video/quicktime";
+  const request = message("500", "what is in this video", [], { reference: { messageId: "1" } });
+  const result = await prepareConversationMedia([post, request], {
+    fetchImpl: async () => new Response(videoFixture(), { headers: { "content-type": "video/quicktime" } }),
+  });
+  assert.equal(result.source, "reply");
+  assert.equal(result.items[0]?.kind, "video");
+  assert.match(result.items[0]?.dataUrl || "", /^data:video\/mov;base64,/);
+});
+
+test("records unsupported video formats with a useful reason without downloading them", async () => {
+  const request = message("1", "what is in this video", ["capture.webm"]);
+  request.attachments.get("0").contentType = "video/webm";
+  const result = await prepareConversationMedia([request], {
+    fetchImpl: () => { throw new Error("must not fetch unsupported formats"); },
+  });
+  assert.equal(result.items.length, 0);
+  assert.equal(result.omitted[0]?.name, "capture.webm");
+  assert.match(result.omitted[0]?.reason || "", /unsupported video format.*MP4 or MOV/);
+});

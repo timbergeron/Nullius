@@ -1,7 +1,12 @@
-import { mp4DurationSeconds } from "./video.js";
+import { movieDurationSeconds } from "./video.js";
 
 const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
-const VIDEO_TYPE = "video/mp4";
+const VIDEO_TYPES = new Map([
+  ["video/mp4", "video/mp4"],
+  ["video/mov", "video/mov"],
+  ["video/quicktime", "video/mov"],
+]);
+const UNSUPPORTED_VIDEO = "unsupported video format; send an MP4 or MOV clip, or a still image";
 const MAX_VIDEO_SECONDS = 120;
 const MAX_MEDIA = 4;
 const MAX_ITEM_BYTES = 8 * 1024 * 1024;
@@ -37,10 +42,12 @@ export function messageMedia(message) {
   for (const attachment of message.attachments?.values?.() || []) {
     const type = attachment.contentType?.split(";")[0]?.toLowerCase();
     const unknownType = !type || type === "application/octet-stream";
-    const isVideo = type === VIDEO_TYPE || unknownType && /\.mp4$/i.test(attachment.name || "");
+    const videoExtension = attachment.name?.match(/\.(mp4|mov|webm|avi|mkv|m4v|mpeg|mpg|wmv)$/i)?.[1]?.toLowerCase();
+    const isVideo = type?.startsWith("video/") || unknownType && Boolean(videoExtension);
     const isImage = IMAGE_TYPES.has(type) || unknownType && /\.(png|jpe?g|webp|gif)$/i.test(attachment.name || "");
     if (!isImage && !isVideo) continue;
-    add({ url: attachment.url, name: (attachment.name || "media").slice(0, 200), size: Number(attachment.size) || 0, kind: isVideo ? "video" : "image" }, [attachment.proxyURL]);
+    const videoMime = VIDEO_TYPES.get(type) || (unknownType && videoExtension ? `video/${videoExtension}` : type);
+    add({ url: attachment.url, name: (attachment.name || "media").slice(0, 200), size: Number(attachment.size) || 0, kind: isVideo ? "video" : "image", ...(isVideo && { mimeType: videoMime }) }, [attachment.proxyURL]);
   }
   for (const embed of message.embeds || []) {
     // Site logos and video thumbnails are unrelated to image questions.
@@ -98,6 +105,7 @@ export function selectConversationMedia(context, { maxItems = MAX_MEDIA } = {}) 
 }
 
 async function downloadMedia(image, { fetchImpl, byteLimit, signal, onBytes }) {
+  if (image.kind === "video" && !VIDEO_TYPES.has(image.mimeType)) throw new Error(UNSUPPORTED_VIDEO);
   const url = discordMediaUrl(image.url);
   if (!url) throw new Error("media is not available through Discord's media service");
   if (image.size > byteLimit) throw new Error("media exceeds size limit");
@@ -107,8 +115,8 @@ async function downloadMedia(image, { fetchImpl, byteLimit, signal, onBytes }) {
     throw new Error("media could not be downloaded");
   }
   let type = response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase();
-  if (image.kind === "video" && type === "application/octet-stream") type = VIDEO_TYPE;
-  if ((image.kind === "video" ? type !== VIDEO_TYPE : !IMAGE_TYPES.has(type)) || !response.body) {
+  if (image.kind === "video") type = type === "application/octet-stream" ? image.mimeType : VIDEO_TYPES.get(type);
+  if ((image.kind === "video" ? !VIDEO_TYPES.has(type) : !IMAGE_TYPES.has(type)) || !response.body) {
     await response.body?.cancel();
     throw new Error("unsupported media format");
   }
@@ -136,7 +144,7 @@ async function downloadMedia(image, { fetchImpl, byteLimit, signal, onBytes }) {
   const buffer = Buffer.concat(chunks, bytes);
   let durationSeconds;
   if (image.kind === "video") {
-    durationSeconds = mp4DurationSeconds(buffer);
+    durationSeconds = movieDurationSeconds(buffer, { quickTime: type === "video/mov" });
     if (durationSeconds > MAX_VIDEO_SECONDS) throw new Error("video exceeds the two-minute duration limit; upload a shorter clip");
   }
   return { dataUrl: `data:${type};base64,${buffer.toString("base64")}`, ...(durationSeconds && { durationSeconds }) };
@@ -168,7 +176,7 @@ export async function prepareConversationMedia(context, {
       items.push({ ...metadata, ...downloaded });
     } catch (error) {
       // Never return fetch errors: they can contain signed URLs or credentials.
-      const safeReasons = ["media exceeds size limit", "unsupported media format", "empty media", "media download timed out", "media is not available through Discord's media service", "invalid MP4 container", "video duration could not be verified", "video exceeds the two-minute duration limit; upload a shorter clip"];
+      const safeReasons = ["media exceeds size limit", "unsupported media format", "empty media", "media download timed out", "media is not available through Discord's media service", "invalid MP4/MOV container", "video duration could not be verified", "video exceeds the two-minute duration limit; upload a shorter clip", UNSUPPORTED_VIDEO];
       omitted.push({ ...metadata, reason: safeReasons.includes(error.message) ? error.message : "media could not be downloaded; ask the user to upload it again" });
     }
   }

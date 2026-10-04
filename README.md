@@ -39,7 +39,7 @@ The server owner can click **Connect OpenRouter** at any time, including before 
 `OPENROUTER_MODEL` defaults to `openai/gpt-6-luna`. The system prompt asks for two or three sentences by default. Nullius normally allows up to 4,096 completion tokens because reasoning models count hidden reasoning against that budget. If OpenRouter returns an empty or length-limited result, Nullius retries once with an 8,192-token ceiling. Each provider attempt has a configurable 90-second timeout. These are ceilings, not requested answer lengths.
 
 `OPENROUTER_VISION_MODEL` defaults to `google/gemini-3-flash-preview`. Requests that
-include readable images or MP4 clips use it for both the answer and any knowledge-pack
+include readable images, MP4 clips, or MOV clips use it for both the answer and any knowledge-pack
 review, with the same media and evidence in both passes. These requests leave the daily
 premium QSS-M review quota available for text requests. The override must accept image
 and video input.
@@ -109,13 +109,13 @@ Nullius considers image posts within five minutes of the request in the recent c
 window. It includes authors, timestamps, and captions so the model can resolve the
 reference or ask which image you mean. Comparison questions can use multiple images.
 
-PNG, JPEG, WebP, GIF, and MP4 attachments and Discord image/GIF previews are supported;
-link-preview logos and general video thumbnails are excluded. MP4 clips use native video
+PNG, JPEG, WebP, GIF, MP4, and MOV attachments and Discord image/GIF previews are supported;
+link-preview logos and general video thumbnails are excluded. MP4 or MOV clips use native video
 input, so the model can inspect motion as well as still frames. Clips must have a verified
-MP4 duration of two minutes or less; other video formats should be converted to MP4 or
+MP4/MOV duration of two minutes or less; other video formats should be converted to MP4/MOV or
 shared as a still image. Clips follow the same attachment, reply, and recent-reference
 priority as images: `@Nullius what happens in that clip?` GIF previews use image input;
-send an MP4 attachment for motion analysis.
+send an MP4 or MOV attachment for motion analysis.
 
 Nullius downloads only from Discord media hosts, does not follow redirects, and sends
 media bytes to OpenRouter. Each request includes at most four media items, eight MiB per

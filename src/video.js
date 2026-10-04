@@ -1,20 +1,20 @@
-// Read only MP4 container headers. Decoding remains with the vision provider.
+// Read MP4 and QuickTime container headers. Decoding remains with the vision provider.
 function findBox(bytes, start, end, wanted) {
   let offset = start;
   while (offset < end) {
-    if (end - offset < 8) throw new Error("invalid MP4 container");
+    if (end - offset < 8) throw new Error("invalid MP4/MOV container");
     let size = bytes.readUInt32BE(offset);
     const type = bytes.toString("ascii", offset + 4, offset + 8);
     let headerLength = 8;
     if (size === 1) {
-      if (end - offset < 16) throw new Error("invalid MP4 container");
+      if (end - offset < 16) throw new Error("invalid MP4/MOV container");
       size = Number(bytes.readBigUInt64BE(offset + 8));
       headerLength = 16;
     } else if (size === 0) {
       size = end - offset;
     }
     if (!Number.isSafeInteger(size) || size < headerLength || size > end - offset) {
-      throw new Error("invalid MP4 container");
+      throw new Error("invalid MP4/MOV container");
     }
     if (type === wanted) return { start: offset + headerLength, end: offset + size };
     offset += size;
@@ -22,8 +22,8 @@ function findBox(bytes, start, end, wanted) {
   return null;
 }
 
-export function mp4DurationSeconds(bytes) {
-  if (!findBox(bytes, 0, bytes.length, "ftyp")) throw new Error("invalid MP4 container");
+export function movieDurationSeconds(bytes, { quickTime = false } = {}) {
+  if (!quickTime && !findBox(bytes, 0, bytes.length, "ftyp")) throw new Error("invalid MP4/MOV container");
   const movie = findBox(bytes, 0, bytes.length, "moov");
   const header = movie && findBox(bytes, movie.start, movie.end, "mvhd");
   if (!header) throw new Error("video duration could not be verified");

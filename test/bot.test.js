@@ -137,13 +137,18 @@ test("keeps ordinary requests on the text model without downloading nearby image
   assert.equal(requests.length, 1);
 });
 
-test("accepts a video-only mention and sends native video parts to the vision model", async (t) => {
-  const requests = [];
+function videoBytes() {
   const mp4 = Buffer.alloc(56);
   mp4.writeUInt32BE(20, 0); mp4.write("ftyp", 4);
   mp4.writeUInt32BE(36, 20); mp4.write("moov", 24);
   mp4.writeUInt32BE(28, 28); mp4.write("mvhd", 32);
   mp4.writeUInt32BE(1000, 48); mp4.writeUInt32BE(2000, 52);
+  return mp4;
+}
+
+test("accepts a video-only mention and sends native video parts to the vision model", async (t) => {
+  const requests = [];
+  const mp4 = videoBytes();
   const result = await invokeBot(t, {
     content: "<@999>",
     attachments: new Map([["video", { name: "throne.mp4", contentType: "video/mp4", size: mp4.length, url: "https://cdn.discordapp.com/attachments/channel/501/throne.mp4" }]]),
@@ -158,4 +163,22 @@ test("accepts a video-only mention and sends native video parts to the vision mo
   const video = requests[0].messages.flatMap((message) => Array.isArray(message.content) ? message.content : []).find((part) => part.type === "video_url");
   assert.match(video.video_url.url, /^data:video\/mp4;base64,/);
   assert.match(result.reply.content, /throne/);
+});
+
+test("routes iPhone MOV attachments to vision with a provider-compatible MIME", async (t) => {
+  const requests = [];
+  const mov = videoBytes();
+  const result = await invokeBot(t, {
+    content: "<@999> what is in this video",
+    attachments: new Map([["video", { name: "iphone.mov", contentType: "video/quicktime", size: mov.length, url: "https://cdn.discordapp.com/attachments/channel/501/iphone.mov" }]]),
+    fetchImpl: async (url, options) => {
+      if (url.startsWith("https://cdn.discordapp.com/")) return new Response(mov, { headers: { "content-type": "video/quicktime" } });
+      requests.push(JSON.parse(options.body));
+      return providerResponse("The video shows a room.");
+    },
+  });
+  assert.equal(requests[0].model, "google/gemini-3-flash-preview");
+  const video = requests[0].messages.flatMap((message) => Array.isArray(message.content) ? message.content : []).find((part) => part.type === "video_url");
+  assert.match(video.video_url.url, /^data:video\/mov;base64,/);
+  assert.match(result.reply.content, /room/);
 });
