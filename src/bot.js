@@ -152,6 +152,7 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
       });
       const vision = await prepareConversationMedia(context);
       const hasMedia = vision.items.length > 0;
+      const hasVideo = vision.items.some((item) => item.kind === "video");
       if (hasMedia || vision.omitted.length) {
         logger.info?.("Discord media context prepared", {
           ...requestDetails, source: vision.source,
@@ -183,8 +184,8 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
       const qssmPremiumUsage = knowledgeUsesPack(retrieved, "qssm")
         ? store.getDailyPremiumUsage(message.guildId, "qssm")
         : null;
-      // Both passes must see the media; do not spend a text premium quota on vision.
-      const premiumReviewModel = hasMedia ? "" : availablePremiumReviewModel(
+      // Videos need the native-video model in both passes; images retain normal routing.
+      const premiumReviewModel = hasVideo ? "" : availablePremiumReviewModel(
         retrieved,
         "qssm",
         qssmPremium,
@@ -196,7 +197,7 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
         messages,
         sessionId: `${message.guildId}:${rootMessageId}`,
         userId: message.author.id,
-        model: hasMedia ? config.openRouter.visionModel : knowledgeModelOverride(retrieved, config.openRouter.packModels),
+        model: hasVideo ? config.openRouter.visionModel : knowledgeModelOverride(retrieved, config.openRouter.packModels),
         reviewModel: premiumReviewModel,
         adversarialReview: Boolean(retrieved?.packs?.length),
         logger,

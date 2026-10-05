@@ -71,7 +71,7 @@ DISCORD_BOT_TOKEN=replace-with-bot-token
 
 OPENROUTER_API_KEY=
 OPENROUTER_MODEL=openai/gpt-6-luna
-QSSM_OPENROUTER_MODEL=openai/gpt-6-sol
+QSSM_OPENROUTER_MODEL=openai/gpt-6.1-sol
 QSSM_PREMIUM_OPENROUTER_MODEL=openai/gpt-6-astra
 QSSM_PREMIUM_DAILY_LIMIT=1
 MAX_OUTPUT_TOKENS=4096
@@ -110,10 +110,10 @@ sudo systemctl reload nginx</code></pre>
             <li><strong>Operator-funded trial:</strong> set <code>OPENROUTER_API_KEY</code> in the VPS <code>.env</code>. Each installed server receives the configured number of trial answers.</li>
             <li><strong>Server-owned account:</strong> leave the operator key blank and have the server owner choose <strong>Connect OpenRouter</strong> on the Nullius setup page.</li>
           </ul>
-          <p>The default model applies to every server. To use GPT-6 Luna generally, GPT-6 Sol for QSS-M, and one Astra final review per server each UTC day:</p>
+          <p>The default model applies to every server. To use GPT-6 Luna generally, GPT-6.1 Sol for QSS-M, and one Astra final review per server each UTC day:</p>
           <pre><code>OPENROUTER_MODEL=openai/gpt-6-luna
 OPENROUTER_VISION_MODEL=google/gemini-3-flash-preview
-QSSM_OPENROUTER_MODEL=openai/gpt-6-sol
+QSSM_OPENROUTER_MODEL=openai/gpt-6.1-sol
 QSSM_PREMIUM_OPENROUTER_MODEL=openai/gpt-6-astra
 QSSM_PREMIUM_DAILY_LIMIT=1
 MAX_OUTPUT_TOKENS=4096
@@ -121,7 +121,7 @@ MAX_RETRY_OUTPUT_TOKENS=8192
 OPENROUTER_TIMEOUT_SECONDS=90</code></pre>
           <p>Reasoning models count their hidden reasoning inside the completion-token budget. Nullius keeps answers concise, but allows a 4,096-token ceiling and retries once at 8,192 if OpenRouter reports that the first result was empty or stopped at the limit. Each provider attempt has a 90-second timeout. Raising these values increases the maximum possible cost and wait, not the requested answer length.</p>
           <p><code>QSSM_OPENROUTER_MODEL</code> optionally routes only QSS-M-backed answers through a different model; when unset, they use <code>OPENROUTER_MODEL</code>. When QSS-M supplies evidence, Nullius uses the selected QSS-M model for the draft and, by default, a second completion that adversarially checks it before replying. <code>QSSM_PREMIUM_OPENROUTER_MODEL</code> upgrades that final review for the first QSS-M-backed answer per server each UTC day, with no special user syntax. Only a successful premium review consumes the quota; set <code>QSSM_PREMIUM_DAILY_LIMIT=0</code> to disable it. Ordinary requests use the normal model once. Module-backed answers therefore normally cost about two model calls, and both reported costs count toward the server's monthly total.</p>
-          <p><code>OPENROUTER_VISION_MODEL</code> selects an image/video-capable model for requests with readable images, MP4 clips, or MOV clips. It defaults to <code>google/gemini-3-flash-preview</code> and handles both the draft and any knowledge review with the same media and evidence. Media requests leave the daily premium QSS-M quota available for text requests.</p>
+          <p>Still images follow the normal chat or QSS-M model routing, including the daily premium review when eligible. Both passes receive the original images, so the configured chat, QSS-M, and premium models must accept image input. <code>OPENROUTER_VISION_MODEL</code> selects a native-video model for requests with readable MP4 or MOV clips, including any accompanying images. It defaults to <code>google/gemini-3-flash-preview</code> and handles both the draft and any knowledge review with the same media and evidence. Video requests leave the daily premium QSS-M quota available.</p>
           <p>After changing any environment value, restart Nullius:</p>
           <pre><code>sudo systemctl restart nullius</code></pre>
         </section>

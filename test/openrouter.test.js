@@ -86,7 +86,7 @@ test("omits unsupported temperature for GPT-6 requests", async (t) => {
     return response(completion({ content: "Answer." }));
   };
 
-  for (const model of ["openai/gpt-6-luna", "openai/gpt-6-astra"]) {
+  for (const model of ["openai/gpt-6-luna", "openai/gpt-6-astra", "openai/gpt-6.1-sol"]) {
     await client().complete({
       apiKey: "secret",
       messages: [{ role: "user", content: "Question" }],
@@ -96,7 +96,7 @@ test("omits unsupported temperature for GPT-6 requests", async (t) => {
     });
   }
 
-  assert.deepEqual(requests.map(({ model }) => model), ["openai/gpt-6-luna", "openai/gpt-6-astra"]);
+  assert.deepEqual(requests.map(({ model }) => model), ["openai/gpt-6-luna", "openai/gpt-6-astra", "openai/gpt-6.1-sol"]);
   assert.ok(requests.every((request) => !("temperature" in request)));
   assert.ok(requests.every((request) => request.max_completion_tokens === 4096));
 });

@@ -30,7 +30,7 @@ test("closes and reopens fenced code across Discord messages", () => {
   assert.match(parts.at(-1), /Done\.$/);
 });
 
-async function invokeBot(t, { content, attachments = new Map(), recent = [], knowledge = null, fetchImpl }) {
+async function invokeBot(t, { content, attachments = new Map(), recent = [], knowledge = null, premiumUsed = 0, fetchImpl }) {
   const config = loadConfig({
     APP_SECRET: "a".repeat(32), DISCORD_CLIENT_ID: "client",
     DISCORD_CLIENT_SECRET: "secret", DISCORD_BOT_TOKEN: "token",
@@ -55,7 +55,7 @@ async function invokeBot(t, { content, attachments = new Map(), recent = [], kno
       getGuild() { return { monthlyLimitUsd: 5, knowledgePacks: ["qssm"] }; },
       getOpenRouterKey() { return "secret"; },
       getMonthlyUsage() { return { cost: 0 }; },
-      getDailyPremiumUsage() { return { used: 0, day: "2026-10-04" }; },
+      getDailyPremiumUsage() { return { used: premiumUsed, day: "2026-10-04" }; },
       async incrementDailyPremiumUsage() { premiumUses += 1; },
       async addUsageCost(_guildId, cost) { costs.push(cost); },
     },
@@ -84,7 +84,7 @@ function providerResponse(text = "The screenshot shows a red square.") {
   }), { headers: { "content-type": "application/json" } });
 }
 
-test("accepts an image-only mention and sends image bytes to the vision model", async (t) => {
+test("accepts an image-only mention and sends image bytes to the normal chat model", async (t) => {
   const requests = [];
   const result = await invokeBot(t, {
     content: "<@999>",
@@ -96,13 +96,13 @@ test("accepts an image-only mention and sends image bytes to the vision model", 
     },
   });
   assert.equal(requests.length, 1);
-  assert.equal(requests[0].model, "google/gemini-3-flash-preview");
+  assert.equal(requests[0].model, "openai/gpt-6-luna");
   assert.match(JSON.stringify(requests[0].messages), /data:image\/png;base64/);
   assert.match(result.reply.content, /red square/);
   assert.deepEqual(result.costs, [0.001]);
 });
 
-test("gives both knowledge passes the recent image and preserves the premium quota", async (t) => {
+test("gives the QSS-M draft and premium review the recent image and charges the quota", async (t) => {
   const requests = [];
   const result = await invokeBot(t, {
     content: "<@999> why does this screenshot look broken in QSS-M?",
@@ -115,10 +115,10 @@ test("gives both knowledge passes the recent image and preserves the premium quo
     },
   });
   assert.equal(requests.length, 2);
-  assert.ok(requests.every((request) => request.model === "google/gemini-3-flash-preview"));
+  assert.deepEqual(requests.map((request) => request.model), ["provider/text", "provider/premium"]);
   assert.ok(requests.every((request) => JSON.stringify(request.messages).includes("data:image/png;base64")));
   assert.ok(requests.every((request) => JSON.stringify(request.messages).includes("R_RenderScene draws the scene.")));
-  assert.equal(result.premiumUses, 0);
+  assert.equal(result.premiumUses, 1);
   assert.deepEqual(result.costs, [0.002]);
 });
 
@@ -182,3 +182,43 @@ test("routes iPhone MOV attachments to vision with a provider-compatible MIME", 
   assert.match(video.video_url.url, /^data:video\/mov;base64,/);
   assert.match(result.reply.content, /room/);
 });
+
+const qssmKnowledge = {
+  async retrieve() {
+    return { packs: [{ id: "qssm" }], results: [{ packId: "qssm", sourceId: "code", locator: "Quake/gl_rmain.c", body: "R_RenderScene draws the scene.", startLine: 10 }] };
+  },
+};
+
+for (const scenario of [
+  { name: "image with exhausted quota", video: false, premiumUsed: 1, models: ["provider/text", "provider/text"], premiumUses: 0 },
+  { name: "mixed image and video", video: true, premiumUsed: 0, models: ["google/gemini-3-flash-preview", "google/gemini-3-flash-preview"], premiumUses: 0 },
+  { name: "image with unavailable video", video: true, unavailable: true, premiumUsed: 0, models: ["provider/text", "provider/premium"], premiumUses: 1 },
+  { name: "image with failed premium review", video: false, premiumUsed: 0, failedReview: true, models: ["provider/text", "provider/premium"], premiumUses: 0 },
+]) {
+  test(`routes QSS-M ${scenario.name} and retains visual evidence`, async (t) => {
+    const requests = [];
+    const mp4 = videoBytes();
+    const attachments = new Map([["image", { name: "bug.png", contentType: "image/png", size: 4, url: "https://cdn.discordapp.com/attachments/channel/501/bug.png" }]]);
+    if (scenario.video) attachments.set("video", { name: "bug.mp4", contentType: "video/mp4", size: mp4.length, url: "https://cdn.discordapp.com/attachments/channel/501/bug.mp4" });
+    const result = await invokeBot(t, {
+      content: "<@999> why is this QSS-M scene broken?", attachments,
+      knowledge: qssmKnowledge, premiumUsed: scenario.premiumUsed,
+      fetchImpl: async (url, options) => {
+        if (url.endsWith("bug.png")) return new Response("data", { headers: { "content-type": "image/png" } });
+        if (url.endsWith("bug.mp4")) return scenario.unavailable
+          ? new Response("unavailable", { status: 404 })
+          : new Response(mp4, { headers: { "content-type": "video/mp4" } });
+        requests.push(JSON.parse(options.body));
+        if (scenario.failedReview && requests.length === 2) return new Response("provider unavailable", { status: 503 });
+        return providerResponse();
+      },
+    });
+    assert.deepEqual(requests.map((request) => request.model), scenario.models);
+    assert.ok(requests.every((request) => JSON.stringify(request.messages).includes("data:image/png;base64")));
+    assert.ok(requests.every((request) => JSON.stringify(request.messages).includes("R_RenderScene draws the scene.")));
+    assert.equal(requests.some((request) => JSON.stringify(request.messages).includes("data:video/mp4;base64")), scenario.video && !scenario.unavailable);
+    assert.equal(result.premiumUses, scenario.premiumUses);
+    assert.deepEqual(result.costs, [scenario.failedReview ? 0.001 : 0.002]);
+    assert.match(result.reply.content, /red square/);
+  });
+}

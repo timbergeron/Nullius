@@ -39,10 +39,12 @@ The server owner can click **Connect OpenRouter** at any time, including before 
 `OPENROUTER_MODEL` defaults to `openai/gpt-6-luna`. The system prompt asks for two or three sentences by default. Nullius normally allows up to 4,096 completion tokens because reasoning models count hidden reasoning against that budget. If OpenRouter returns an empty or length-limited result, Nullius retries once with an 8,192-token ceiling. Each provider attempt has a configurable 90-second timeout. These are ceilings, not requested answer lengths.
 
 `OPENROUTER_VISION_MODEL` defaults to `google/gemini-3-flash-preview`. Requests that
-include readable images, MP4 clips, or MOV clips use it for both the answer and any knowledge-pack
-review, with the same media and evidence in both passes. These requests leave the daily
-premium QSS-M review quota available for text requests. The override must accept image
-and video input.
+include a readable MP4 or MOV clip use it for both the answer and any knowledge-pack
+review, with the same media and evidence in both passes, including any accompanying images.
+Video requests leave the daily premium QSS-M review quota available. Still images follow
+the normal chat or QSS-M routing, including the premium review when eligible; both passes
+receive the original images. Models selected for chat, QSS-M, and premium reviews must
+accept image input. The video override must accept both image and video input.
 
 `QSSM_OPENROUTER_MODEL` can route only QSS-M-backed answers through a different
 operator-selected model. It is the default for both the draft and adversarial review when
@@ -75,7 +77,7 @@ ends only after the answer or error response has finished sending.
 | `DISCORD_BOT_TOKEN` | Yes | — | Shared Nullius bot token |
 | `OPENROUTER_API_KEY` | No | — | Operator-funded trial key |
 | `OPENROUTER_MODEL` | No | `openai/gpt-6-luna` | One server-controlled model/router |
-| `OPENROUTER_VISION_MODEL` | No | `google/gemini-3-flash-preview` | Image/video-capable model for media answers and reviews |
+| `OPENROUTER_VISION_MODEL` | No | `google/gemini-3-flash-preview` | Native-video model for requests with readable clips and their reviews |
 | `QSSM_OPENROUTER_MODEL` | No | — | Default model override for the QSS-M draft and review |
 | `QSSM_PREMIUM_OPENROUTER_MODEL` | No | — | Optional final-review model for the first daily QSS-M answer per server |
 | `QSSM_PREMIUM_DAILY_LIMIT` | No | `1` | Successful premium QSS-M reviews per server per UTC day; `0` disables |
@@ -221,7 +223,7 @@ PUBLIC_URL=https://timbergeron.com/nullius
 PORT=3011
 OPENROUTER_MODEL=openai/gpt-6-luna
 OPENROUTER_VISION_MODEL=google/gemini-3-flash-preview
-QSSM_OPENROUTER_MODEL=openai/gpt-6-sol
+QSSM_OPENROUTER_MODEL=openai/gpt-6.1-sol
 QSSM_PREMIUM_OPENROUTER_MODEL=openai/gpt-6-astra
 QSSM_PREMIUM_DAILY_LIMIT=1
 KNOWLEDGE_ENABLED=true

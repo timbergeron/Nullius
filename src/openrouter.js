@@ -61,7 +61,7 @@ export class OpenRouterClient {
         model,
         messages,
         max_completion_tokens: maxCompletionTokens,
-        ...(!model.startsWith("openai/gpt-6-") && { temperature: 0.35 }),
+        ...(!/^openai\/gpt-6(?:\.\d+)?-/.test(model) && { temperature: 0.35 }),
         session_id: sessionId,
         user: createHash("sha256").update(`discord:${userId}`).digest("hex").slice(0, 32),
       }),
