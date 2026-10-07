@@ -52,7 +52,7 @@ export async function buildPackIndex(manifest, { directory, env = process.env, l
     database.exec("BEGIN");
     for (const source of manifest.sources) {
       const started = Date.now();
-      const { revision, documents } = await collectSource(source, { manifest, env, logger });
+      const { revision, documents } = await collectSource(source, { manifest, env, logger, revisions });
       revisions[source.id] = revision;
 
       let chunkCount = 0;

@@ -200,6 +200,9 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
         model: hasVideo ? config.openRouter.visionModel : knowledgeModelOverride(retrieved, config.openRouter.packModels),
         reviewModel: premiumReviewModel,
         adversarialReview: Boolean(retrieved?.packs?.length),
+        reviewHints: knowledge?.reviewHints && knowledgeUsesPack(retrieved, "qssm")
+          ? (draft) => knowledge.reviewHints({ packIds: ["qssm"], draft })
+          : null,
         logger,
       });
       answerModel = answer.model || "";

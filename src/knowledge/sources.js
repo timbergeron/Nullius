@@ -5,13 +5,14 @@ import { readFile, readdir, stat } from "node:fs/promises";
 import { isIP } from "node:net";
 import path from "node:path";
 import { promisify } from "node:util";
+import { collectWiki } from "./wiki.js";
 import { csvToRecords } from "./csv.js";
 import { pickChunker } from "./extractors.js";
 import { compileGlobs } from "./glob.js";
 import { resolveContainedPath, resolveSourcePath } from "./manifest.js";
 
 const run = promisify(execFile);
-const MAX_FILE_BYTES = 512 * 1024;
+const MAX_FILE_BYTES = 2 * 1024 * 1024;
 const MAX_FILES = 5000;
 const MAX_DOWNLOAD_BYTES = 8 * 1024 * 1024;
 const MAX_SOURCE_BYTES = 64 * 1024 * 1024;
@@ -56,14 +57,19 @@ async function readTextFile(absolutePath) {
   return buffer.toString("utf8");
 }
 
-async function chunkFiles(source, { root, relativePaths, revision, logger }) {
+async function chunkFiles(source, {
+  root, relativePaths, revision, logger, readText, citationPrefix = "",
+}) {
   const documents = [];
   let sourceBytes = 0;
   for (const relativePath of relativePaths) {
     let text = "";
     try {
-      const safePath = await resolveContainedPath(root, relativePath, `${source.id}:${relativePath}`);
-      text = await readTextFile(safePath);
+      if (readText) text = await readText(relativePath);
+      else {
+        const safePath = await resolveContainedPath(root, relativePath, `${source.id}:${relativePath}`);
+        text = await readTextFile(safePath);
+      }
     } catch (error) {
       logger?.warn?.(`Skipped ${relativePath}: ${error.message}`);
       continue;
@@ -91,7 +97,9 @@ async function chunkFiles(source, { root, relativePaths, revision, logger }) {
       locator: relativePath,
       title: relativePath,
       revision,
-      url: documentUrl(source, { relativePath, revision, startLine: 1 }),
+      url: documentUrl(source, {
+        relativePath: `${citationPrefix}${relativePath}`, revision, startLine: 1,
+      }),
       chunks,
     });
   }
@@ -100,20 +108,50 @@ async function chunkFiles(source, { root, relativePaths, revision, logger }) {
 
 async function collectGitWorktree(source, context) {
   const root = await resolveSourcePath(source, context);
-  const revision = await repositoryRevision(root, source.ref || "HEAD", { includeDirty: true });
-  const listing = await git(root, ["ls-files", "-z"]);
+  const [resolvedRevision, topLevel, sourcePrefix] = await Promise.all([
+    git(root, ["rev-parse", "--verify", "--end-of-options", `${source.ref || "HEAD"}^{commit}`]),
+    git(root, ["rev-parse", "--show-toplevel"]),
+    git(root, ["rev-parse", "--show-prefix"]),
+  ]);
+  const revision = resolvedRevision.trim();
+  const repositoryRoot = topLevel.replace(/\r?\n$/, "");
+  const citationPrefix = sourcePrefix.replace(/\r?\n$/, "");
+  const listing = await git(repositoryRoot, [
+    "ls-tree", "-r", "-l", "-z", "--full-tree", revision,
+    ...(citationPrefix ? ["--", citationPrefix] : []),
+  ]);
   const include = compileGlobs(source.include);
   const exclude = source.exclude.length ? compileGlobs(source.exclude) : () => false;
 
-  const relativePaths = listing
-    .split("\0")
-    .filter(Boolean)
-    .filter((candidate) => include(candidate) && !exclude(candidate))
-    .slice(0, MAX_FILES);
+  const blobs = new Map();
+  for (const entry of listing.split("\0")) {
+    const match = /^(100644|100755) blob ([a-f0-9]+)\s+(\d+)\t([\s\S]+)$/.exec(entry);
+    if (!match || Number(match[3]) === 0 || Number(match[3]) > MAX_FILE_BYTES) continue;
+    const repositoryPath = match[4];
+    if (!repositoryPath.startsWith(citationPrefix)) continue;
+    const relativePath = repositoryPath.slice(citationPrefix.length);
+    // Tree paths must stay inside this source, without following worktree symlinks.
+    const contained = path.posix.relative(".", relativePath);
+    if (path.posix.isAbsolute(relativePath) || contained === ".." || contained.startsWith("../")) continue;
+    if (!include(relativePath) || exclude(relativePath)) continue;
+    blobs.set(relativePath, match[2]);
+    if (blobs.size >= MAX_FILES) break;
+  }
+  const readText = async (relativePath) => {
+    const { stdout: buffer } = await run("git", ["-C", repositoryRoot, "cat-file", "blob", blobs.get(relativePath)], {
+      encoding: "buffer",
+      maxBuffer: MAX_FILE_BYTES + 1,
+      windowsHide: true,
+    });
+    if (!buffer.length || buffer.length > MAX_FILE_BYTES || buffer.includes(0)) return "";
+    return buffer.toString("utf8");
+  };
 
   return {
     revision,
-    documents: await chunkFiles(source, { ...context, root, relativePaths, revision }),
+    documents: await chunkFiles(source, {
+      ...context, root, relativePaths: [...blobs.keys()], revision, readText, citationPrefix,
+    }),
   };
 }
 
@@ -130,6 +168,7 @@ async function walkDirectory(root, current = "", found = []) {
 }
 
 async function collectFiles(source, context) {
+  if (source.extractor === "qssm-wiki") return collectWiki(source, context);
   const root = await resolveSourcePath(source, context);
   const include = compileGlobs(source.include.length ? source.include : ["**"]);
   const exclude = source.exclude.length ? compileGlobs(source.exclude) : () => false;

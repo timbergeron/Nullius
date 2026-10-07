@@ -179,6 +179,23 @@ export class KnowledgeManager {
     return { packs, results };
   }
 
+  async reviewHints({ packIds, draft }) {
+    if (!this.enabled || !packIds?.includes("qssm")) return [];
+    const entry = this.packs.get("qssm");
+    if (!entry) return [];
+    await this.refreshEntry(entry);
+    if (!entry.index) return [];
+    const candidates = new Set();
+    for (const [, code] of String(draft).matchAll(/`([^`\n]+)`/g)) {
+      const token = code.trim().split(/\s+/)[0];
+      // Narrowly inspect console-like names; paths, enum values and C names are not commands.
+      if (!/^(?:[a-z][a-z0-9]*_[a-z0-9_]+|[+-][a-z][a-z0-9_-]*)$/.test(token)) continue;
+      if (!entry.index.hasSymbol(token)) candidates.add(token);
+      if (candidates.size >= 8) break;
+    }
+    return [...candidates];
+  }
+
   close() {
     for (const { index } of this.packs.values()) index?.close();
     this.packs.clear();

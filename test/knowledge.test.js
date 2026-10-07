@@ -116,9 +116,9 @@ test("rejects arbitrary environment variable names and free-form pack instructio
   assert.throws(
     () => normalizeManifest({
       ...MANIFEST,
-      sources: [{ ...MANIFEST.sources[0], type: "git-worktree", ref: "main" }],
+      sources: [{ ...MANIFEST.sources[0], type: "git-worktree", ref: "main..other" }],
     }),
-    /must be HEAD/,
+    /unsafe git ref/,
   );
 });
 
@@ -470,4 +470,35 @@ test("stays quiet when the feature is switched off", async () => {
   }).init();
   assert.equal(await manager.retrieve({ packIds: ["sample"], question: "anything" }), null);
   assert.deepEqual(manager.list(), []);
+});
+
+test("flags unfamiliar console identifiers for QSS-M review while accepting real code symbols", async (t) => {
+  const rawManifest = { ...MANIFEST, id: "qssm" };
+  const { root, packsDirectory, indexDirectory } = await buildSamplePack({ rawManifest,
+    source: C_SOURCE + '\nvoid internal_helper (void)\n{\n}\n' });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const manager = await new KnowledgeManager({ packsDirectory, indexDirectory }).init();
+  t.after(() => manager.close());
+  assert.deepEqual(await manager.reviewHints({ packIds: ["qssm"], draft: 'Use `r_examplewind 1`, `r_madeup 1`, and `-fakeoption`. Implementation uses `internal_helper` and `Example_Draw`; do not confuse `autoexec.cfg` or `GL_NEAREST` with settings.' }), ["r_madeup", "-fakeoption"]);
+  assert.deepEqual(await manager.reviewHints({ packIds: [], draft: '`r_madeup`' }), []);
+  assert.deepEqual(await manager.reviewHints({ packIds: ["other"], draft: '`r_madeup`' }), []);
+});
+
+
+test("accepts a pinned git revision and the reviewed wiki extractor", () => {
+  const manifest = normalizeManifest({ ...MANIFEST, sources: [
+    { ...MANIFEST.sources[0], type: "git-worktree", ref: "main" },
+    { id: "wiki", type: "files", path: "wiki", extractor: "qssm-wiki", kind: "wiki" },
+  ] });
+  assert.equal(manifest.sources[0].ref, "main");
+  assert.equal(manifest.sources[1].extractor, "qssm-wiki");
+});
+
+test("keeps pack names and implementation wording out of evidence ranking", async (t) => {
+  const { root, manifest, indexDirectory } = await buildSamplePack();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const index = await PackIndex.open(manifest, path.join(indexDirectory, "sample.sqlite"));
+  t.after(() => index.close());
+  const terms = index.selectiveTokens(questionTokens("Where is the sample engine console command buffer implemented?"));
+  assert.deepEqual(terms.map((token) => token.lower), ["console", "command", "buffer"]);
 });

@@ -134,3 +134,39 @@ test("uses the first-pass answer if review fails and retains known review cost",
   assert.match(warnings[0].message, /review failed/i);
   assert.equal(JSON.stringify(warnings).includes("Usable draft"), false);
 });
+
+test("passes draft identifier checks to the review without changing original evidence", async () => {
+  const calls = [];
+  const messages = [{ role: "user", content: [{ type: "image_url", image_url: { url: "data:image/png;base64,dGVzdA==" } }] }];
+  const result = await completeAnswer({
+    ...request, messages, adversarialReview: true,
+    reviewHints: async (draft) => {
+      assert.equal(draft, "Try `r_invented 1`.");
+      return ["r_invented"];
+    },
+    openRouter: {
+      async complete(options) {
+        calls.push(options);
+        return { text: calls.length === 1 ? "Try `r_invented 1`." : "Use the documented setting.", cost: 0.001 };
+      },
+    },
+  });
+  assert.match(calls[1].messages.at(-1).content, /r_invented/);
+  assert.match(calls[1].messages.at(-1).content, /not proof/);
+  assert.deepEqual(calls[1].messages[0], messages[0]);
+  assert.equal(messages.length, 1);
+  assert.equal(result.text, "Use the documented setting.");
+});
+
+test("continues the review when the local identifier check fails", async () => {
+  let calls = 0;
+  const result = await completeAnswer({
+    ...request, adversarialReview: true,
+    reviewHints: async () => { throw new Error("index unavailable"); },
+    logger: { warn() {} },
+    openRouter: { async complete() { return { text: ++calls === 1 ? "Draft." : "Reviewed.", cost: 0.001 }; } },
+  });
+  assert.equal(result.text, "Reviewed.");
+  assert.equal(result.reviewed, true);
+  assert.equal(calls, 2);
+});

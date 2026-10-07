@@ -9,6 +9,7 @@ const STOP_WORDS = new Set([
   "has", "had", "not", "but", "its", "it's", "any", "all", "out", "get", "got",
   "use", "used", "using", "make", "makes", "made", "work", "works", "who", "whom",
   "please", "thanks", "help", "question", "explain", "tell", "know", "think",
+  "implement", "implemented", "implementation", "code",
 ]);
 const MAX_TOKENS = 24;
 const FTS_LIMIT = 120;
@@ -16,8 +17,10 @@ const KIND_LIMIT = 10;
 const COMMON_TERM_RATIO = 0.1;
 // "when did", "what changed", "why does" are answered by history, not by current code.
 // "where is", "which file", "how is it implemented" are answered by code, not by a catalog row.
-const LOCATION_INTENT = /\b(where|which file|what file|located|location|implement\w*|defined|handles?|handled|source file)\b/i;
-const HISTORY_INTENT = /\b(when|why|changed?|changes|recent|recently|history|commits?|touched?|regress\w*|introduced|added|removed|broke|broken|since)\b/i;
+const LOCATION_INTENT = /\bwhich\b[^?]{0,80}\bfile\b|\b(where|which file|what file|located|location|implement\w*|defined|handles?|handled|source file)\b/i;
+const DOCUMENTATION_INTENT = /\b(readme|documentation|manual|build|building|install|installation|on disk|folder|directories|directory|organis[ez]\w*)\b/i;
+const SETTING_INTENT = /\b(cvar|variable|setting|sets|configure)\b/i;
+const HISTORY_INTENT = /\b(when|why|changed|changes|recent|recently|history|commits?|touched?|regress\w*|introduced|added|removed|broke|broken|since)\b/i;
 
 export function questionTokens(question) {
   const tokens = [];
@@ -66,6 +69,8 @@ function validateIndexMetadata(manifest, meta) {
 export class PackIndex {
   constructor({ manifest, database, meta }) {
     this.manifest = manifest;
+    this.contextTerms = new Set(manifest.activation.keywords.flatMap((keyword) =>
+      questionTokens(keyword).map((token) => token.lower)));
     this.database = database;
     this.meta = meta;
     this.authority = new Map(
@@ -128,8 +133,9 @@ export class PackIndex {
   }
 
   selectiveTokens(tokens) {
-    const selective = tokens.filter((token) => !this.isCommonTerm(token));
-    return selective.length ? selective : tokens;
+    const topical = tokens.filter((token) => !this.contextTerms.has(token.lower));
+    const selective = topical.filter((token) => token.identifierLike || this.hasSymbol(token.lower) || !this.isCommonTerm(token));
+    return selective.length ? selective : topical;
   }
 
   static async open(manifest, indexPath) {
@@ -190,7 +196,7 @@ export class PackIndex {
     if (this.manifest.retrieval.exactSymbolsFirst) {
       for (const token of tokens) {
         for (const row of this.symbolStatement.all(token.lower)) {
-          const precision = token.identifierLike ? 1 : 0.7;
+          const precision = token.identifierLike ? 1 : tokens.length === 1 ? 0.7 : 0.35;
           add(row.chunk_id, (0.7 + 0.3 * row.weight) * precision, `${row.kind} ${row.name}`);
         }
       }
@@ -231,12 +237,14 @@ export class PackIndex {
   }
 
   retrieve(question) {
-    const tokens = questionTokens(question);
+    const tokens = questionTokens(question).filter((token) => !this.contextTerms.has(token.lower));
     if (!tokens.length) return [];
     const locationIntent = LOCATION_INTENT.test(question);
     const historyIntent = HISTORY_INTENT.test(question);
+    const documentationIntent = !historyIntent && !locationIntent && DOCUMENTATION_INTENT.test(question);
+    const settingIntent = !historyIntent && !locationIntent && !documentationIntent && SETTING_INTENT.test(question);
 
-    const resolved = this.collectCandidates(tokens, historyIntent ? "commit" : "")
+    const resolved = this.collectCandidates(tokens, historyIntent ? "commit" : documentationIntent ? "doc" : settingIntent ? "wiki" : "")
       .map((candidate) => {
         const chunk = this.chunkStatement.get(candidate.chunkId);
         return chunk ? { ...candidate, chunk } : null;
@@ -258,7 +266,16 @@ export class PackIndex {
         const named = tokens.some(
           (token) => token.lower.length > 3 && item.chunk.locator.toLowerCase().includes(token.lower),
         );
-        const located = locationIntent && item.chunk.kind === "source" ? 1.35 : 1;
+        const evidenceText = `${item.chunk.heading} ${item.chunk.body}`.toLowerCase();
+        const coverage = tokens.filter((token) => evidenceText.includes(token.lower)).length / tokens.length;
+        // A compound topic must beat incidental one-word matches in large menu/source files.
+        const adjacentPhrases = tokens.slice(1).filter((token, index) =>
+          evidenceText.includes(`${tokens[index].lower} ${token.lower}`)).length;
+        const topical = tokens.some((token) => token.identifierLike) ? 1
+          : (0.5 + 0.5 * coverage) * (1 + 0.3 * Math.min(2, adjacentPhrases));
+        const intent = documentationIntent ? (item.chunk.kind === "doc" ? 1.6 : 0.8)
+          : settingIntent ? (["wiki", "catalog"].includes(item.chunk.kind) ? 1.35 : 0.85) : 1;
+        const located = locationIntent ? (item.chunk.kind === "source" ? 2 : 0.8) : 1;
         const exact = item.reasons.some((reason) => !reason.endsWith("match")) ? 1.35 : 1;
         const historical = historyIntent
           ? item.chunk.kind === "commit"
@@ -267,7 +284,7 @@ export class PackIndex {
           : 1;
         return {
           ...item,
-          score: item.score * authority * spread * located * exact * historical * (named ? 1.2 : 1),
+          score: item.score * authority * spread * located * exact * historical * topical * intent * (named ? 1.2 : 1),
         };
       })
       .sort((left, right) => right.score - left.score);

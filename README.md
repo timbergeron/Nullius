@@ -204,13 +204,24 @@ are merged and reranked.
 
 ### The QSS-M pack
 
-[`knowledge-packs/qssm`](knowledge-packs/qssm) indexes the QSS-M engine: 196 source files,
-1,052 catalog entries from the published commands and variables sheet, project
-documentation, and 3,000 commits—about 11,500 chunks, built in a few seconds. Point
-`KNOWLEDGE_SOURCE_QSSM` at a local checkout and run `npm run knowledge:build -- qssm`. Its
-rank-aware evaluation suite covers 35 domain questions plus 9 adversarial activation checks
-across console variables, commands, source ownership, provenance, history, build instructions,
-and ordinary words that overlap the Quake domain.
+[`knowledge-packs/qssm`](knowledge-packs/qssm) indexes committed QSS-M engine source,
+the public commands-and-variables sheet, project documentation, and up to 3,000 commits.
+It also imports the prepared wiki reference and reviewed FAQ in `knowledge-packs/qssm/wiki`.
+Point `KNOWLEDGE_SOURCE_QSSM` at a local checkout and run `npm run knowledge:build -- qssm`.
+
+Git sources read the selected commit, including files up to two MiB such as `menu.c`;
+dirty and untracked files are not indexed. Each wiki record is checked against its recorded
+engine revision. Reference records require an unchanged defining file; reviewed FAQ answers
+require every cited engine file to be unchanged. Changed, malformed, or unreviewed records
+are excluded, and source code remains authoritative when notes disagree. The same selected
+evidence reaches the draft and review. A local identifier check flags unfamiliar console-like
+tokens in the draft for verification without rejecting valid internal code symbols or adding
+another model call. Index absence is not proof that a setting does not exist.
+
+Wiki updates are explicit: import a reviewed snapshot with its provenance, rebuild the index,
+and run `npm run knowledge:test -- qssm`. Runtime requests do not fetch wiki data or generate FAQ
+content. The evaluation suite covers console variables, commands, source ownership,
+provenance, history, build instructions, and unrelated words that overlap the Quake domain.
 
 ## Deploy on timbergeron.com
 

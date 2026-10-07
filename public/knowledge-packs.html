@@ -144,7 +144,7 @@ touch knowledge-packs/acme-engine/README.md</code></pre>
           <h2>Choose source types and configure mounts</h2>
           <dl class="troubleshooting-list">
             <dt><code>git-worktree</code></dt>
-            <dd>Indexes tracked files from a local Git checkout. It records the branch and commit and supports include/exclude globs.</dd>
+            <dd>Indexes regular files from the configured Git commit, using an immutable full revision and include/exclude globs. It excludes dirty working files, untracked files, and symlinks; source files up to two MiB are supported.</dd>
             <dt><code>git-history</code></dt>
             <dd>Indexes commit hashes, dates, subjects, bodies, and touched filenames from a validated Git ref.</dd>
             <dt><code>files</code></dt>
@@ -156,6 +156,7 @@ touch knowledge-packs/acme-engine/README.md</code></pre>
           <pre><code>KNOWLEDGE_SOURCE_ACME=/srv/source/acme</code></pre>
           <p>Hyphens become underscores and names become uppercase: mount <code>quake-tools</code> maps to <code>KNOWLEDGE_SOURCE_QUAKE_TOOLS</code>. Packs cannot request arbitrary environment variables. The source’s <code>path</code> must resolve inside its mount, and symlinks cannot escape it.</p>
           <p>Available file extractors are <code>auto</code>, <code>c-source</code>, <code>markdown</code>, <code>html-doc</code>, and <code>text</code>. C-family source is chunked by declaration/function and yields cvar, command, function, and filename symbols. Markdown and HTML are chunked by heading.</p>
+          <p>The QSS-M pack also uses the <code>qssm-wiki</code> extractor on a <code>files</code> source containing prepared <code>reference.json</code> and <code>faq.json</code>. At build time it checks their engine revision against committed source files. Changed reference files and FAQ answers with changed, missing, or unreviewed citations are excluded. The same evidence reaches both answer passes; a local check flags unfamiliar console-like draft identifiers for review. These checks add no model calls, and missing index entries are not proof that a setting does not exist.</p>
           <p>A remote catalog source looks like this:</p>
           <pre><code>{
   "id": "settings",
@@ -254,7 +255,7 @@ npm run knowledge:validate -- qssm
 npm run knowledge:build -- qssm
 npm run knowledge:test -- qssm
 npm run knowledge:query -- qssm "where is the skybox rendering code?"</code></pre>
-          <p>The pack indexes current QSS-M engine source, selected project documentation, 3,000 commits, and the public commands-and-variables Google Sheet. Vendored image/JSON libraries are excluded because they add vocabulary without describing QSS-M behavior.</p>
+          <p>The pack indexes committed QSS-M engine source, selected project documentation, 3,000 commits, the public commands-and-variables Google Sheet, and a prepared snapshot of the QSS-M wiki reference and reviewed FAQ. Vendored image/JSON libraries are excluded because they add vocabulary without describing QSS-M behavior.</p>
           <p>To reproduce the same source snapshot later, record the output of:</p>
           <pre><code>git -C ../QSS-M rev-parse HEAD</code></pre>
           <p>Then check out that commit before rebuilding. The public sheet is intentionally live; for byte-for-byte historical reproduction, export it to a CSV inside the pack and change the source from <code>url</code> to a contained <code>path</code>.</p>

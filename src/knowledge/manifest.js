@@ -13,6 +13,7 @@ const EXTRACTORS = new Set([
   "text",
   "command-catalog",
   "git-log",
+  "qssm-wiki",
 ]);
 const ACTIVATION_MODES = new Set(["auto", "always"]);
 const ID_PATTERN = /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/;
@@ -191,9 +192,7 @@ function normalizeSource(raw, packId, seen) {
   }
   if (type === "git-worktree") {
     source.ref = String(raw.ref || "HEAD").trim();
-    if (source.ref !== "HEAD") {
-      fail(packId, `source "${id}" git-worktree ref must be HEAD; check out the desired revision`);
-    }
+    validateGitRef(source.ref, packId, id);
   }
   if (type === "git-history") {
     source.ref = String(raw.ref || "HEAD").trim();

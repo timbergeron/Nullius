@@ -146,6 +146,29 @@
     {
       "question": "How does QSS-M download missing maps?",
       "expect": { "locator": "Quake/cl_main.c" }
+    },
+    {
+      "question": "QSS-M: how do I change my field of view?",
+      "expect": {
+        "sourceId": "wiki",
+        "text": "fov 110",
+        "maxRank": 8
+      }
+    },
+    {
+      "question": "What does snd_filterquality default to on Windows and Linux in QSS-M?",
+      "expect": {
+        "sourceId": "wiki",
+        "text": "Default by platform",
+        "maxRank": 5
+      }
+    },
+    {
+      "question": "Where is QSS-M's main menu code?",
+      "expect": {
+        "locator": "Quake/menu.c",
+        "maxRank": 3
+      }
     }
   ],
   "offTopic": [

@@ -6,11 +6,12 @@ Check for incorrect or unsupported claims, contradictions with the evidence, cit
 Silently fix every issue you find. Return only the final revised answer, with no review notes, preamble, score, or discussion of this audit. If the draft is already sound, return it unchanged.
 </adversarial_review>`;
 
-export function buildAdversarialReviewMessages(messages, draft) {
+export function buildAdversarialReviewMessages(messages, draft, hints = []) {
+  const checks = hints.length ? `\n\nLocal identifier check: these draft tokens were absent from the installed QSS-M index: ${JSON.stringify(hints).replaceAll("<", "\\u003c").replaceAll(">", "\\u003e")}. This is not proof that they do not exist: the index may be incomplete. Verify whether each is a real console setting, launch option, or internal code symbol using supplied evidence. Remove unsupported recommendations; do not discard supported internal code symbols.` : "";
   return [
     ...messages,
     { role: "assistant", content: draft },
-    { role: "user", content: ADVERSARIAL_REVIEW_PROMPT },
+    { role: "user", content: ADVERSARIAL_REVIEW_PROMPT + checks },
   ];
 }
 
@@ -42,17 +43,27 @@ export async function completeAnswer({
   model = "",
   reviewModel = "",
   adversarialReview = false,
+  reviewHints = null,
   logger = console,
 }) {
   const request = { apiKey, messages, sessionId, userId, model };
   const draft = await openRouter.complete(request);
   if (!adversarialReview) return draft;
 
+  let hints = [];
+  if (reviewHints) {
+    try {
+      hints = await reviewHints(draft.text);
+    } catch {
+      logger.warn?.("Local review identifier check unavailable; continuing the evidence review");
+    }
+  }
+
   try {
     const reviewed = await openRouter.complete({
       ...request,
       model: reviewModel.trim() || model,
-      messages: buildAdversarialReviewMessages(messages, draft.text),
+      messages: buildAdversarialReviewMessages(messages, draft.text, hints),
     });
     return {
       ...reviewed,
