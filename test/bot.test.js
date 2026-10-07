@@ -222,3 +222,32 @@ for (const scenario of [
     assert.match(result.reply.content, /red square/);
   });
 }
+
+test("QSS-M image review gets supplementary definitions without changing models, media or premium accounting", async (t) => {
+  const requests = [];
+  const result = await invokeBot(t, {
+    content: "<@999> What does snd_filterquality default to in QSS-M?",
+    attachments: new Map([["image", { name: "settings.png", contentType: "image/png", size: 4, url: "https://cdn.discordapp.com/attachments/channel/501/settings.png" }]]),
+    knowledge: {
+      async retrieve() { return { packs: [{ id: "qssm" }], results: [{ packId: "qssm", sourceId: "engine", locator: "Quake/snd_dma.c", body: "Original sound evidence.", startLine: 10 }] }; },
+      async reviewEvidence({ draft, knowledge }) {
+        assert.match(draft, /snd_filterquality/);
+        assert.equal(knowledge.results[0].body, "Original sound evidence.");
+        return { packs: [{ id: "qssm" }], results: [{ packId: "qssm", sourceId: "wiki", locator: "snd_filterquality", body: "Windows default 5; Linux default 1.", startLine: 399 }] };
+      },
+    },
+    fetchImpl: async (url, options) => {
+      if (url.startsWith("https://cdn.discordapp.com/")) return new Response("data", { headers: { "content-type": "image/png" } });
+      requests.push(JSON.parse(options.body));
+      return providerResponse(requests.length === 1 ? "snd_filterquality defaults to 1 everywhere." : "Windows: 5. Linux: 1.");
+    },
+  });
+  assert.deepEqual(requests.map((r) => r.model), ["provider/text", "provider/premium"]);
+  assert.ok(requests.every((r) => JSON.stringify(r.messages).includes("data:image/png;base64")));
+  assert.ok(requests.every((r) => JSON.stringify(r.messages).includes("Original sound evidence.")));
+  assert.doesNotMatch(JSON.stringify(requests[0].messages), /Windows default 5/);
+  assert.match(JSON.stringify(requests[1].messages), /Windows default 5/);
+  assert.equal(result.premiumUses, 1);
+  assert.deepEqual(result.costs, [0.002]);
+  assert.match(result.reply.content, /Windows: 5/);
+});

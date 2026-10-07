@@ -218,10 +218,35 @@ evidence reaches the draft and review. A local identifier check flags unfamiliar
 tokens in the draft for verification without rejecting valid internal code symbols or adding
 another model call. Index absence is not proof that a setting does not exist.
 
+Before the review, Nullius also looks up exact indexed console names mentioned in the draft,
+including plain commands such as `fov`, prose, and console examples. It adds missing source
+and reference passages to the review as quoted evidence, while retaining the original request,
+conversation, and media. The lookup checks at most eight names and adds at most six passages
+or 8,000 text characters. It makes no additional model call and preserves normal model routing,
+cost accounting, daily premium limits, and review failure fallback.
+
 Wiki updates are explicit: import a reviewed snapshot with its provenance, rebuild the index,
 and run `npm run knowledge:test -- qssm`. Runtime requests do not fetch wiki data or generate FAQ
 content. The evaluation suite covers console variables, commands, source ownership,
 provenance, history, build instructions, and unrelated words that overlap the Quake domain.
+
+Answer evaluations in `answer-evaluations.json` separately check final answers for current
+compiled defaults, Windows/Linux differences, invented console recommendations, and citation
+provenance. Normal tests exercise the checks offline. To run paid checks using the configured
+QSS-M draft and premium review models against the installed index, explicitly run:
+
+```sh
+npm run knowledge:test-answers -- --live
+npm run knowledge:test-answers -- --live --corrections
+```
+
+The first command runs both model passes. The second supplies deliberately incorrect drafts
+and pays only for their review; `--case fps-default` selects one case. Both commands report
+answers, assertion failures, and actual cost, without posting to Discord or consuming its daily
+premium quota. They use `OPENROUTER_API_KEY` from the operator environment. The checks validate
+case patterns and supplied citation labels/lines, including definitions added during review;
+they do not prove semantic support for every claim. Inspect the reported answers when changing
+models, evidence, or expected defaults, and update cases when the committed engine changes.
 
 ## Deploy on timbergeron.com
 

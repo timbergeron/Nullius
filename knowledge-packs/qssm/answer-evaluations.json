@@ -1,0 +1,34 @@
+{
+  "cases": [
+    {
+      "id": "fps-default",
+      "question": "In QSS-M, what is the default value of host_maxfps? Give its exact compiled default and cite the source.",
+      "draft": "host_maxfps defaults to 72. [Quake/host.c:80]",
+      "required": ["host_maxfps", "\\b250\\b"],
+      "forbidden": ["defaults? (?:to |is )?`?72\\b"],
+      "requireCitation": true
+    },
+    {
+      "id": "platform-defaults",
+      "question": "What are the exact compiled defaults of snd_filterquality in QSS-M on Windows and Linux? Give one short line per platform, with citations.",
+      "draft": "snd_filterquality defaults to 1 on Windows and 1 on Linux. [Quake/snd_dma.c:399]",
+      "required": ["snd_filterquality", "(?:Windows[^\\n.]{0,80}\\b5\\b|\\b5\\b[^\\n.]{0,80}Windows)", "(?:Linux[^\\n.]{0,80}\\b1\\b|\\b1\\b[^\\n.]{0,80}Linux)"],
+      "requireCitation": true
+    },
+    {
+      "id": "invented-command",
+      "question": "In QSS-M, how do I change my field of view to 110? Give the real console command and the default value, with a citation.",
+      "draft": "Use `r_invented_fov 110`. The default field of view is 75. [Quake/gl_screen.c:163]",
+      "required": ["\\bfov\\s+110\\b", "\\b90\\b"],
+      "forbidden": ["(?:use|set|try|run)\\s+`?r_invented_fov", "default[^.\\n]{0,40}\\b75\\b"],
+      "requireCitation": true
+    },
+    {
+      "id": "fabricated-citation",
+      "question": "What is the default host_maxfps value in QSS-M? Cite only the supplied evidence.",
+      "draft": "host_maxfps defaults to 250. [Quake/nonexistent_settings.c:9000]",
+      "required": ["host_maxfps", "\\b250\\b"],
+      "requireCitation": true
+    }
+  ]
+}

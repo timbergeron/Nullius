@@ -196,6 +196,44 @@ export class KnowledgeManager {
     return [...candidates];
   }
 
+  async reviewEvidence({ packIds, draft, knowledge = null }) {
+    if (!this.enabled || !packIds?.includes("qssm")) return null;
+    const entry = this.packs.get("qssm");
+    if (!entry) return null;
+    await this.refreshEntry(entry);
+    if (!entry.index) return null;
+
+    // Inline examples first, then prose and fenced console examples. Only exact
+    // indexed console names are looked up; draft prose is never a search instruction.
+    const text = String(draft).slice(0, 24_000);
+    const candidates = new Set();
+    const code = [...text.matchAll(/`([^`\n]+)`/g)].map((match) => match[1]).join("\n");
+    for (const match of `${code}\n${text}`.matchAll(/(?<![A-Za-z0-9_./])[+-]?[A-Za-z_][A-Za-z0-9_-]*(?![A-Za-z0-9_/]|\.[A-Za-z0-9_])/g)) {
+      const token = match[0].toLowerCase();
+      if (!["cvar", "command", "param"].includes(entry.index.symbolKind(token))) continue;
+      candidates.add(token);
+      if (candidates.size === 8) break;
+    }
+    const key = (r) => JSON.stringify([r.packId, r.sourceId, r.locator, r.revision, r.startLine, r.endLine, r.body]);
+    const seen = new Set((knowledge?.results || []).map(key));
+    const groups = [...candidates].map((name) => entry.index.lookupSymbol(name));
+    const results = [];
+    let characters = 0;
+    // Round-robin gives several settings their definitions before adding secondary evidence.
+    for (let position = 0; position < 2; position += 1) {
+      for (const group of groups) {
+        const result = group[position];
+        if (!result || seen.has(key(result))) continue;
+        if (results.length >= Math.min(6, this.maxResults)) break;
+        if (characters + result.body.length > Math.min(8000, this.maxCharacters)) continue;
+        results.push(result);
+        seen.add(key(result));
+        characters += result.body.length;
+      }
+    }
+    return results.length ? { packs: [{ id: "qssm", answerPolicy: entry.manifest.answerPolicy }], results } : null;
+  }
+
   close() {
     for (const { index } of this.packs.values()) index?.close();
     this.packs.clear();

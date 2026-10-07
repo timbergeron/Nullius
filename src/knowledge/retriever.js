@@ -108,7 +108,7 @@ export class PackIndex {
       WHERE c.id = ?
     `);
     this.knownSymbolStatement = database.prepare(
-      "SELECT kind FROM symbols WHERE name = ? LIMIT 1",
+      "SELECT kind FROM symbols WHERE name = ? ORDER BY CASE WHEN kind IN ('cvar', 'command', 'param') THEN 0 ELSE 1 END LIMIT 1",
     );
     this.termCountStatement = database.prepare(
       "SELECT count(*) AS matches FROM chunk_search WHERE chunk_search MATCH ?",
@@ -164,6 +164,28 @@ export class PackIndex {
 
   hasSymbol(name) {
     return Boolean(this.symbolKind(name));
+  }
+
+  lookupSymbol(name) {
+    const seen = new Set();
+    return this.symbolStatement.all(String(name).toLowerCase())
+      .filter((row) => ["cvar", "command", "param"].includes(row.kind))
+      .map((row) => ({ row, chunk: this.chunkStatement.get(row.chunk_id) }))
+      .filter(({ row, chunk }) => {
+        if (!chunk || seen.has(row.chunk_id)) return false;
+        seen.add(row.chunk_id);
+        return true;
+      })
+      .map(({ row, chunk }) => ({
+        packId: this.manifest.id,
+        score: (this.authority.get(chunk.source_id) ?? 0.5) * row.weight,
+        reasons: [`${row.kind} ${row.name}`],
+        kind: chunk.kind, sourceId: chunk.source_id, locator: chunk.locator,
+        title: chunk.title, heading: chunk.heading, url: chunk.url,
+        revision: chunk.revision, startLine: chunk.start_line, endLine: chunk.end_line,
+        body: chunk.body,
+      }))
+      .sort((left, right) => right.score - left.score);
   }
 
   activatesFor(question) {

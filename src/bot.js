@@ -203,6 +203,9 @@ export function createBot({ config, store, openRouter, knowledge = null, logger 
         reviewHints: knowledge?.reviewHints && knowledgeUsesPack(retrieved, "qssm")
           ? (draft) => knowledge.reviewHints({ packIds: ["qssm"], draft })
           : null,
+        reviewEvidence: knowledge?.reviewEvidence && knowledgeUsesPack(retrieved, "qssm")
+          ? (draft) => knowledge.reviewEvidence({ packIds: ["qssm"], draft, knowledge: retrieved })
+          : null,
         logger,
       });
       answerModel = answer.model || "";

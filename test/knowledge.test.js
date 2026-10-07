@@ -502,3 +502,53 @@ test("keeps pack names and implementation wording out of evidence ranking", asyn
   const terms = index.selectiveTokens(questionTokens("Where is the sample engine console command buffer implemented?"));
   assert.deepEqual(terms.map((token) => token.lower), ["console", "command", "buffer"]);
 });
+
+test("looks up exact console definitions without confusing similarly named variables", async (t) => {
+  const fixture = await buildSamplePack();
+  t.after(() => rm(fixture.root, { recursive: true, force: true }));
+  const index = await PackIndex.open(fixture.manifest, path.join(fixture.indexDirectory, "sample.sqlite"));
+  t.after(() => index.close());
+  assert.equal(typeof index.lookupSymbol, "function");
+  const definitions = index.lookupSymbol("r_examplewind");
+  assert.ok(definitions.some((r) => r.body.includes('"r_examplewind", "0"')));
+  assert.ok(definitions.every((r) => r.reasons.includes("cvar r_examplewind")));
+  assert.deepEqual(index.lookupSymbol("r_example"), []);
+  assert.deepEqual(index.lookupSymbol("Example_Draw"), [], "internal functions are not console recommendations");
+});
+
+test("adds missing definitions for console names in prose and fenced examples within one review budget", async (t) => {
+  const fixture = await buildSamplePack({ rawManifest: { ...MANIFEST, id: "qssm" },
+    source: C_SOURCE + '\ncvar_t fov = {"fov", "90", CVAR_ARCHIVE};\n' });
+  t.after(() => rm(fixture.root, { recursive: true, force: true }));
+  const manager = await new KnowledgeManager({ packsDirectory: fixture.packsDirectory,
+    indexDirectory: fixture.indexDirectory, maxCharacters: 600, logger: { info() {}, warn() {} } }).init();
+  t.after(() => manager.close());
+  assert.equal(typeof manager.reviewEvidence, "function");
+  const draft = 'r_examplewind defaults to 7. Set `fov 110`.\n```console\nrecord demo\n```\nTry `r_madeup`. Example_Draw is internal.';
+  const evidence = await manager.reviewEvidence({ packIds: ["qssm"], draft });
+  assert.ok(evidence?.results.some((r) => r.body.includes('"fov", "90"')));
+  assert.ok(evidence.results.some((r) => r.body.includes('"r_examplewind", "0"')));
+  assert.ok(evidence.results.every((r) => !r.reasons.some((reason) => reason.includes("r_madeup"))));
+  assert.ok(evidence.results.reduce((total, r) => total + r.body.length, 0) <= 600);
+  assert.equal(await manager.reviewEvidence({ packIds: [], draft }), null);
+  assert.equal(await manager.reviewEvidence({ packIds: ["qssm"], draft, knowledge: evidence }), null);
+});
+
+test("review evidence includes commands whose name also belongs to an internal function", async (t) => {
+  const fixture = await buildSamplePack({ rawManifest: { ...MANIFEST, id: "qssm" },
+    source: 'void vid_restart (void)\n{\n}\n\n' + C_SOURCE.replace('"record"', '"vid_restart"') });
+  t.after(() => rm(fixture.root, { recursive: true, force: true }));
+  const manager = await new KnowledgeManager({ packsDirectory: fixture.packsDirectory, indexDirectory: fixture.indexDirectory, logger: { info() {}, warn() {} } }).init();
+  t.after(() => manager.close());
+  const evidence = await manager.reviewEvidence({ packIds: ["qssm"], draft: 'Use `vid_restart`.' });
+  assert.ok(evidence?.results.some((r) => r.body.includes('Cmd_AddCommand ("vid_restart"')));
+});
+
+test("review evidence accepts prose names followed by sentence punctuation but excludes file names", async (t) => {
+  const fixture = await buildSamplePack({ rawManifest: { ...MANIFEST, id: "qssm" } });
+  t.after(() => rm(fixture.root, { recursive: true, force: true }));
+  const manager = await new KnowledgeManager({ packsDirectory: fixture.packsDirectory, indexDirectory: fixture.indexDirectory, logger: { info() {}, warn() {} } }).init();
+  t.after(() => manager.close());
+  assert.ok((await manager.reviewEvidence({ packIds: ["qssm"], draft: "The setting is r_examplewind." }))?.results.length);
+  assert.equal(await manager.reviewEvidence({ packIds: ["qssm"], draft: "Read r_examplewind.cfg and Quake/r_examplewind." }), null);
+});

@@ -38,13 +38,13 @@ export function renderKnowledgeSystemRules(knowledge) {
   return [KNOWLEDGE_SYSTEM_RULES, ...policies].join("\n");
 }
 
-export function renderKnowledgeBlock(knowledge) {
+export function renderKnowledgeBlock(knowledge, referencePrefix = "") {
   if (!knowledge?.results?.length) return "";
   const packs = (knowledge.packs || []).map((pack) => {
     const references = knowledge.results
       .filter((result) => result.packId === pack.id)
       .map((result, index) => ({
-        id: `${pack.id}:${index + 1}`,
+        id: `${pack.id}:${referencePrefix}${index + 1}`,
         sourceId: result.sourceId,
         citation: citationLabel(result),
         text: result.body,
