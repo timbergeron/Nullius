@@ -96,7 +96,7 @@ test("accepts an image-only mention and sends image bytes to the normal chat mod
     },
   });
   assert.equal(requests.length, 1);
-  assert.equal(requests[0].model, "openai/gpt-6-luna");
+  assert.equal(requests[0].model, "anthropic/claude-haiku-5.5");
   assert.match(JSON.stringify(requests[0].messages), /data:image\/png;base64/);
   assert.match(result.reply.content, /red square/);
   assert.deepEqual(result.costs, [0.001]);
@@ -133,7 +133,7 @@ test("keeps ordinary requests on the text model without downloading nearby image
       return providerResponse("Hello.");
     },
   });
-  assert.equal(requests[0].model, "openai/gpt-6-luna");
+  assert.equal(requests[0].model, "anthropic/claude-haiku-5.5");
   assert.equal(requests.length, 1);
 });
 

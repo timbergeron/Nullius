@@ -67,7 +67,7 @@ export function loadConfig(env = process.env) {
     openRouter: {
       callbackUrl: `${publicUrl}/auth/openrouter/callback`,
       trialApiKey: env.OPENROUTER_API_KEY?.trim() || "",
-      model: env.OPENROUTER_MODEL?.trim() || "openai/gpt-6-luna",
+      model: env.OPENROUTER_MODEL?.trim() || "anthropic/claude-haiku-5.5",
       visionModel: env.OPENROUTER_VISION_MODEL?.trim() || "google/gemini-3-flash-preview",
       packModels: {
         qssm: env.QSSM_OPENROUTER_MODEL?.trim() || "",
